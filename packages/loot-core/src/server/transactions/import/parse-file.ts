@@ -50,7 +50,8 @@ type StructuredTransaction = {
   date: string;
   payee_name: string;
   imported_payee: string;
-  notes: string;
+  notes: string | null;
+  imported_id?: string;
 };
 
 // CSV files return raw data that are not guaranteed to be StructuredTransactions
@@ -59,8 +60,10 @@ type CsvTransaction = Record<string, string> | string[];
 type Transaction = StructuredTransaction | CsvTransaction;
 
 type ParseError = { message: string; internal: string };
+export type DetectedImportFormat = 'venmo';
 export type ParseFileResult = {
   errors: ParseError[];
+  detectedFormat?: DetectedImportFormat | null;
   transactions?: Transaction[];
 };
 
@@ -113,6 +116,15 @@ async function parseCSV(
   const errors = Array<ParseError>();
   let contents = await fs.readFile(filepath);
 
+  const venmoImport = parseVenmoCSV(contents);
+  if (venmoImport) {
+    return {
+      errors,
+      detectedFormat: 'venmo',
+      transactions: venmoImport,
+    };
+  }
+
   const skipStart = Math.max(0, options.skipStartLines || 0);
   const skipEnd = Math.max(0, options.skipEndLines || 0);
 
@@ -153,6 +165,175 @@ async function parseCSV(
   }
 
   return { errors, transactions: data };
+}
+
+const VENMO_COLUMNS = [
+  'ID',
+  'Datetime',
+  'Type',
+  'Status',
+  'From',
+  'To',
+  'Amount (total)',
+] as const;
+
+function parseVenmoCSV(contents: string): StructuredTransaction[] | null {
+  let rows: string[][];
+  try {
+    rows = csv2json(contents, {
+      columns: false,
+      bom: true,
+      delimiter: ',',
+      quote: '"',
+      trim: true,
+      relax_column_count: true,
+      skip_empty_lines: true,
+    }) as string[][];
+  } catch {
+    return null;
+  }
+
+  const headerIndex = rows.findIndex(row => isVenmoHeaderRow(row));
+  if (headerIndex === -1) {
+    return null;
+  }
+
+  const headers = rows[headerIndex].map(value => String(value).trim());
+  const records = rows
+    .slice(headerIndex + 1)
+    .map(row => venmoRowToRecord(headers, row))
+    .filter(record => record.ID || record.Datetime);
+
+  const ownerName = inferVenmoOwnerName(records);
+
+  return records
+    .filter(record => record.ID && record.Datetime)
+    .map(record => normalizeVenmoTransaction(record, ownerName))
+    .filter(
+      transaction => transaction.date != null && transaction.amount != null,
+    );
+}
+
+function isVenmoHeaderRow(row: unknown): row is string[] {
+  if (!Array.isArray(row)) {
+    return false;
+  }
+
+  const values = new Set(row.map(value => String(value).trim()));
+  return VENMO_COLUMNS.every(column => values.has(column));
+}
+
+function venmoRowToRecord(headers: string[], row: string[]) {
+  const record: Record<string, string> = {};
+
+  headers.forEach((header, index) => {
+    record[header] = String(row[index] ?? '').trim();
+  });
+
+  return record;
+}
+
+function inferVenmoOwnerName(records: Record<string, string>[]): string | null {
+  const counts = new Map<string, number>();
+
+  records.forEach(record => {
+    [record.From, record.To].forEach(name => {
+      if (!name) {
+        return;
+      }
+
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+  });
+
+  let selectedName: string | null = null;
+  let highestCount = 0;
+  counts.forEach((count, name) => {
+    if (count > highestCount) {
+      selectedName = name;
+      highestCount = count;
+    }
+  });
+
+  return selectedName;
+}
+
+function normalizeVenmoTransaction(
+  record: Record<string, string>,
+  ownerName: string | null,
+): StructuredTransaction {
+  const type = record.Type || 'Venmo';
+  const status = record.Status;
+  const from = record.From;
+  const to = record.To;
+  const counterparty =
+    getVenmoCounterparty(record, ownerName) ||
+    record.Destination ||
+    record['Funding Source'] ||
+    type ||
+    'Venmo';
+  const note = buildVenmoNotes(record);
+
+  return {
+    amount: looselyParseAmount(record['Amount (total)']),
+    date: record.Datetime.slice(0, 10),
+    imported_id: `venmo:${record.ID || buildVenmoFallbackId(record)}`,
+    payee_name: counterparty,
+    imported_payee: `${type}${status ? ` / ${status}` : ''} / ${
+      from || '(blank)'
+    } -> ${to || '(blank)'}`,
+    notes: note,
+  };
+}
+
+function getVenmoCounterparty(
+  record: Record<string, string>,
+  ownerName: string | null,
+): string | null {
+  const from = record.From;
+  const to = record.To;
+
+  if (ownerName) {
+    if (from === ownerName && to && to !== ownerName) {
+      return to;
+    }
+    if (to === ownerName && from && from !== ownerName) {
+      return from;
+    }
+  }
+
+  if (from && to) {
+    return to;
+  }
+
+  return from || to || null;
+}
+
+function buildVenmoNotes(record: Record<string, string>): string | null {
+  const parts = [];
+
+  if (record.Status && record.Status !== 'Complete') {
+    parts.push(`[Status: ${record.Status}]`);
+  }
+
+  if (record.Note) {
+    parts.push(record.Note);
+  } else if (record.Type) {
+    parts.push(record.Type);
+  }
+
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
+function buildVenmoFallbackId(record: Record<string, string>): string {
+  return [
+    record.Datetime,
+    record.Type,
+    record.From,
+    record.To,
+    record['Amount (total)'],
+    record.Note,
+  ].join('|');
 }
 
 async function parseQIF(

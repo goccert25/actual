@@ -17,7 +17,10 @@ import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import { send } from '@actual-app/core/platform/client/connection';
-import type { ParseFileOptions } from '@actual-app/core/server/transactions/import/parse-file';
+import type {
+  DetectedImportFormat,
+  ParseFileOptions,
+} from '@actual-app/core/server/transactions/import/parse-file';
 import { amountToInteger } from '@actual-app/core/shared/util';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -198,6 +201,8 @@ export function ImportTransactionsModal({
     ImportTransaction[]
   >([]);
   const [filetype, setFileType] = useState('unknown');
+  const [detectedFormat, setDetectedFormat] =
+    useState<DetectedImportFormat | null>(null);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping | null>(null);
   const [splitMode, setSplitMode] = useState(false);
   const [flipAmount, setFlipAmount] = useState(false);
@@ -353,13 +358,15 @@ export function ImportTransactionsModal({
       setFilename(filename);
       setFileType(filetype);
 
-      const { errors, transactions: parsedTransactions = [] } = await send(
-        'transactions-parse-file',
-        {
-          filepath: filename,
-          options,
-        },
-      );
+      const {
+        detectedFormat,
+        errors,
+        transactions: parsedTransactions = [],
+      } = await send('transactions-parse-file', {
+        filepath: filename,
+        options,
+      });
+      setDetectedFormat(detectedFormat ?? null);
 
       let index = 0;
       const transactions = parsedTransactions.map(trans => {
@@ -387,7 +394,7 @@ export function ImportTransactionsModal({
           setFlipAmount(flipAmount);
         }
 
-        if (filetype === 'csv') {
+        if (filetype === 'csv' && detectedFormat !== 'venmo') {
           let mappings = prefs[`csv-mappings-${accountId}`];
           mappings = mappings
             ? JSON.parse(mappings)
@@ -407,6 +414,14 @@ export function ImportTransactionsModal({
           setParseDateFormat(
             isDateFormat(parseDateFormat) ? parseDateFormat : null,
           );
+        } else if (detectedFormat === 'venmo') {
+          setFieldMappings(null);
+          setParseDateFormat(null);
+          setSplitMode(false);
+          setFlipAmount(false);
+          setInOutMode(false);
+          setMultiplierEnabled(false);
+          setMultiplierAmount('');
         } else if (filetype === 'qif') {
           const parseDateFormat =
             prefs[`parse-date-${accountId}-${filetype}`] ||
@@ -419,6 +434,7 @@ export function ImportTransactionsModal({
           setParseDateFormat(null);
         }
 
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         setParsedTransactions(transactions as ImportTransaction[]);
       }
 
@@ -593,10 +609,9 @@ export function ImportTransactionsModal({
 
       trans = fieldMappings ? applyFieldMappings(trans, fieldMappings) : trans;
 
-      const date =
-        isOfxFile(filetype) || isCamtFile(filetype)
-          ? trans.date
-          : parseDate(trans.date, parseDateFormat);
+      const date = isPreParsedFile(filetype, detectedFormat)
+        ? trans.date
+        : parseDate(trans.date, parseDateFormat);
       if (date == null) {
         errorMessage = t(
           'Unable to parse date {{date}} with given date format',
@@ -608,7 +623,7 @@ export function ImportTransactionsModal({
       const { amount } = parseAmountFields(
         trans,
         splitMode,
-        isOfxFile(filetype) ? false : inOutMode,
+        isPreParsedFile(filetype, detectedFormat) ? false : inOutMode,
         outValue,
         flipAmount,
         multiplierAmount,
@@ -661,7 +676,10 @@ export function ImportTransactionsModal({
       return;
     }
 
-    if (!isOfxFile(filetype) && !isCamtFile(filetype)) {
+    if (
+      !isPreParsedFile(filetype, detectedFormat) &&
+      !isVenmoFile(detectedFormat)
+    ) {
       const key = `parse-date-${accountId}-${filetype}`;
       savePrefs({ [key]: parseDateFormat });
     }
@@ -675,7 +693,7 @@ export function ImportTransactionsModal({
       });
     }
 
-    if (filetype === 'csv') {
+    if (isGenericCsvFile(filetype, detectedFormat)) {
       savePrefs({
         [`csv-mappings-${accountId}`]: JSON.stringify(fieldMappings),
       });
@@ -689,7 +707,7 @@ export function ImportTransactionsModal({
       savePrefs({ [`csv-out-value-${accountId}`]: String(outValue) });
     }
 
-    if (filetype === 'csv' || filetype === 'qif') {
+    if (isGenericCsvFile(filetype, detectedFormat) || filetype === 'qif') {
       savePrefs({
         [`flip-amount-${accountId}-${filetype}`]: String(flipAmount),
         [`import-notes-${accountId}-${filetype}`]: String(importNotes),
@@ -739,7 +757,7 @@ export function ImportTransactionsModal({
 
   const onImportPreview = useEffectEvent(async () => {
     // Filter by start date before preview and deduplication
-    const isPreParsed = isOfxFile(filetype) || isCamtFile(filetype);
+    const isPreParsed = isPreParsedFile(filetype, detectedFormat);
     const filteredTransactions = filterByStartDate(
       parsedTransactions,
       startDate,
@@ -828,6 +846,7 @@ export function ImportTransactionsModal({
 
     void onImportPreview();
   }, [
+    detectedFormat,
     loadingState,
     parsedTransactions.length,
     startDate,
@@ -883,7 +902,9 @@ export function ImportTransactionsModal({
           <ModalHeader
             title={
               t('Import transactions') +
-              (filetype ? ` (${filetype.toUpperCase()})` : '')
+              (filetype
+                ? ` (${(detectedFormat || filetype).toUpperCase()})`
+                : '')
             }
             rightContent={<ModalCloseButton onPress={() => state.close()} />}
           />
@@ -931,7 +952,7 @@ export function ImportTransactionsModal({
                   <View>
                     <Transaction
                       transaction={item}
-                      showParsed={filetype === 'csv' || filetype === 'qif'}
+                      showParsed={!isPreParsedFile(filetype, detectedFormat)}
                       parseDateFormat={parseDateFormat}
                       dateFormat={dateFormat}
                       fieldMappings={fieldMappings}
@@ -1001,7 +1022,7 @@ export function ImportTransactionsModal({
             )}
           </View>
 
-          {filetype === 'csv' && (
+          {isGenericCsvFile(filetype, detectedFormat) && (
             <View style={{ marginTop: 10 }}>
               <FieldMappings
                 transactions={transactions}
@@ -1084,7 +1105,8 @@ export function ImportTransactionsModal({
           )}
 
           {/*Import Options */}
-          {(filetype === 'qif' || filetype === 'csv') && (
+          {(filetype === 'qif' ||
+            isGenericCsvFile(filetype, detectedFormat)) && (
             <View style={{ marginTop: 10 }}>
               <SpaceBetween
                 gap={5}
@@ -1092,7 +1114,8 @@ export function ImportTransactionsModal({
               >
                 {/* Date Format */}
                 <View>
-                  {(filetype === 'qif' || filetype === 'csv') && (
+                  {(filetype === 'qif' ||
+                    isGenericCsvFile(filetype, detectedFormat)) && (
                     <DateFormatSelect
                       transactions={transactions}
                       fieldMappings={fieldMappings || undefined}
@@ -1105,7 +1128,7 @@ export function ImportTransactionsModal({
                 </View>
 
                 {/* CSV Options */}
-                {filetype === 'csv' && (
+                {isGenericCsvFile(filetype, detectedFormat) && (
                   <View style={{ marginLeft: 10, gap: 5 }}>
                     <SectionLabel title={t('CSV OPTIONS')} />
                     <label
@@ -1231,7 +1254,7 @@ export function ImportTransactionsModal({
                     }}
                     onChangeAmount={onMultiplierChange}
                   />
-                  {filetype === 'csv' && (
+                  {isGenericCsvFile(filetype, detectedFormat) && (
                     <>
                       <LabeledCheckbox
                         id="form_split"
@@ -1348,4 +1371,24 @@ function isOfxFile(fileType: string) {
 
 function isCamtFile(fileType: string) {
   return fileType === 'xml';
+}
+
+function isVenmoFile(detectedFormat: DetectedImportFormat | null | undefined) {
+  return detectedFormat === 'venmo';
+}
+
+function isPreParsedFile(
+  fileType: string,
+  detectedFormat: DetectedImportFormat | null | undefined,
+) {
+  return (
+    isOfxFile(fileType) || isCamtFile(fileType) || isVenmoFile(detectedFormat)
+  );
+}
+
+function isGenericCsvFile(
+  fileType: string,
+  detectedFormat: DetectedImportFormat | null | undefined,
+) {
+  return fileType === 'csv' && !isVenmoFile(detectedFormat);
 }

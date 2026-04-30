@@ -221,4 +221,67 @@ describe('File import', () => {
     expect(errors.length).toBe(0);
     expect(await getTransactions('one')).toMatchSnapshot();
   });
+
+  test('detects and normalizes Venmo CSV exports', async () => {
+    const result = await parseFile(
+      __dirname + '/../../../mocks/files/venmo.csv',
+    );
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.detectedFormat).toBe('venmo');
+    expect(result.transactions).toEqual([
+      {
+        amount: -400,
+        date: '2026-04-01',
+        imported_id: 'venmo:111',
+        imported_payee: 'Payment / Complete / George Tong -> Serena Tong',
+        notes: 'Dog sitter',
+        payee_name: 'Serena Tong',
+      },
+      {
+        amount: 22.42,
+        date: '2026-04-09',
+        imported_id: 'venmo:222',
+        imported_payee: 'Charge / Complete / George Tong -> Spencer Chen',
+        notes: 'Movie tickets',
+        payee_name: 'Spencer Chen',
+      },
+      {
+        amount: -2144.62,
+        date: '2026-04-18',
+        imported_id: 'venmo:333',
+        imported_payee: 'Standard Transfer / Issued / (blank) -> (blank)',
+        notes: '[Status: Issued] Standard Transfer',
+        payee_name: 'Wealthfront *2875',
+      },
+      {
+        amount: 30,
+        date: '2026-04-20',
+        imported_id: 'venmo:444',
+        imported_payee: 'Payment / Pending / Jeremy Chung -> George Tong',
+        notes: '[Status: Pending] Pizza',
+        payee_name: 'Jeremy Chung',
+      },
+    ]);
+  });
+
+  test('re-importing the same Venmo CSV is idempotent', async () => {
+    await prefs.loadPrefs();
+    await db.insertAccount({ id: 'one', name: 'one' });
+
+    const firstImport = await importFileWithRealTime(
+      'one',
+      __dirname + '/../../../mocks/files/venmo.csv',
+    );
+    expect(firstImport.errors).toHaveLength(0);
+    expect(firstImport.added).toHaveLength(4);
+
+    const secondImport = await importFileWithRealTime(
+      'one',
+      __dirname + '/../../../mocks/files/venmo.csv',
+    );
+    expect(secondImport.errors).toHaveLength(0);
+    expect(secondImport.added).toHaveLength(0);
+    expect(await getTransactions('one')).toHaveLength(4);
+  });
 });
