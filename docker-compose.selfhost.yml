@@ -1,0 +1,21 @@
+services:
+  actual:
+    build:
+      context: .
+      dockerfile: sync-server.Dockerfile
+    image: ${ACTUAL_IMAGE_NAME:-actual-local:dev}
+    ports:
+      - '${ACTUAL_BIND_PORT:-5006}:5006'
+    environment:
+      ACTUAL_DATA_DIR: /data
+      ACTUAL_PORT: 5006
+      ACTUAL_LOGIN_METHOD: ${ACTUAL_LOGIN_METHOD:-password}
+    volumes:
+      - '${ACTUAL_HOST_DATA_DIR:?Set ACTUAL_HOST_DATA_DIR in .env.selfhost}:/data'
+    healthcheck:
+      test: ['CMD-SHELL', 'node build/src/scripts/health-check.js']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
