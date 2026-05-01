@@ -7,6 +7,7 @@ source while keeping the data portable between machines.
 
 - Compose file: [docker-compose.selfhost.yml](./docker-compose.selfhost.yml)
 - Env template: [\.env.selfhost.example](./.env.selfhost.example)
+- Actual AI env template: [\.env.actual-ai.example](./.env.actual-ai.example)
 - Image build: [sync-server.Dockerfile](./sync-server.Dockerfile)
 
 ## One-Time Setup
@@ -43,6 +44,45 @@ Open Actual at:
 http://localhost:5006
 ```
 
+## Enable Actual AI
+
+`actual-ai` is wired in as an optional sidecar service behind the `ai` compose
+profile. It is not started unless you explicitly enable that profile.
+
+1. Copy the AI env template:
+
+```bash
+cp .env.actual-ai.example .env.actual-ai
+```
+
+2. Edit `.env.actual-ai` and set at least:
+
+```env
+ACTUAL_PASSWORD=your_actual_password
+ACTUAL_BUDGET_ID=your_budget_sync_id
+OPENAI_API_KEY=your_openai_api_key
+```
+
+Notes:
+
+- `ACTUAL_BUDGET_ID` is the Sync ID from Actual: `Settings -> Show advanced settings -> Sync ID`
+- `FEATURES` defaults to safe `dryRun` mode. Nothing will be modified until you
+  remove `"dryRun"` from the list.
+- If your budget uses end-to-end encryption, also set `ACTUAL_E2E_PASSWORD`.
+
+3. Start Actual with Actual AI enabled:
+
+```bash
+docker compose --env-file .env.selfhost --profile ai -f docker-compose.selfhost.yml up --build -d
+```
+
+This starts:
+
+- `actual`
+- `actual-ai`
+
+If you want to keep running Actual without AI, omit `--profile ai`.
+
 ## Stop The Server
 
 ```bash
@@ -56,6 +96,12 @@ code:
 
 ```bash
 docker compose --env-file .env.selfhost -f docker-compose.selfhost.yml up --build -d
+```
+
+If you are running with Actual AI enabled:
+
+```bash
+docker compose --env-file .env.selfhost --profile ai -f docker-compose.selfhost.yml up --build -d
 ```
 
 ## Where The Data Lives
@@ -94,6 +140,18 @@ Show logs:
 
 ```bash
 docker compose --env-file .env.selfhost -f docker-compose.selfhost.yml logs -f
+```
+
+Show logs with Actual AI enabled:
+
+```bash
+docker compose --env-file .env.selfhost --profile ai -f docker-compose.selfhost.yml logs -f
+```
+
+Show only Actual AI logs:
+
+```bash
+docker compose --env-file .env.selfhost --profile ai -f docker-compose.selfhost.yml logs -f actual-ai
 ```
 
 Force a clean rebuild:

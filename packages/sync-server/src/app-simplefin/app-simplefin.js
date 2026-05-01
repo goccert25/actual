@@ -10,7 +10,7 @@ import {
 } from '#util/middlewares';
 
 const app = express();
-export { app as handlers };
+export { app as handlers, resolveAccessKey };
 app.use(requestLoggerMiddleware);
 app.use(express.json());
 app.use(validateSessionMiddleware);
@@ -33,27 +33,9 @@ app.post(
 app.post(
   '/accounts',
   handleError(async (req, res) => {
-    let accessKey = secretsService.get(SecretName.simplefin_accessKey);
-
     try {
-      if (accessKey == null || accessKey === 'Forbidden') {
-        const token = secretsService.get(SecretName.simplefin_token);
-        if (token == null || token === 'Forbidden') {
-          throw new Error('No token');
-        } else {
-          accessKey = await getAccessKey(token);
-          secretsService.set(SecretName.simplefin_accessKey, accessKey);
-          if (accessKey == null || accessKey === 'Forbidden') {
-            throw new Error('No access key');
-          }
-        }
-      }
-    } catch {
-      invalidToken(res);
-      return;
-    }
+      const accessKey = await resolveAccessKey();
 
-    try {
       const accounts = await getAccounts(accessKey, null, null, null, true);
 
       res.send({
@@ -62,9 +44,8 @@ app.post(
           accounts: accounts.accounts,
         },
       });
-    } catch (e) {
-      serverDown(e, res);
-      return;
+    } catch {
+      invalidToken(res);
     }
   }),
 );
@@ -74,9 +55,10 @@ app.post(
   handleError(async (req, res) => {
     const { accountId, startDate } = req.body || {};
 
-    const accessKey = secretsService.get(SecretName.simplefin_accessKey);
-
-    if (accessKey == null || accessKey === 'Forbidden') {
+    let accessKey;
+    try {
+      accessKey = await resolveAccessKey();
+    } catch {
       invalidToken(res);
       return;
     }
@@ -127,9 +109,9 @@ app.post(
         data: !Array.isArray(accountId)
           ? results.errors[accountId][0]
           : {
-              ...response,
-              errors: results.errors,
-            },
+            ...response,
+            errors: results.errors,
+          },
       });
       return;
     }
@@ -290,18 +272,27 @@ function serverDown(e, res) {
   });
 }
 
+function normalizeSecretValue(secret) {
+  return typeof secret === 'string' ? secret.trim() : secret;
+}
+
 function parseAccessKey(accessKey) {
+  const normalizedAccessKey = normalizeSecretValue(accessKey);
   let scheme = null;
   let rest = null;
   let auth = null;
   let username = null;
   let password = null;
   let baseUrl = null;
-  if (!accessKey || !accessKey.match(/^.*\/\/.*:.*@.*$/)) {
+  if (!normalizedAccessKey || !normalizedAccessKey.match(/^.*\/\/.*:.*@.*$/)) {
     console.log('Invalid SimpleFIN access key');
+    console.log('Access Key');
+    console.log(accessKey);
+    console.log('Access Key Normalized');
+    console.log(normalizedAccessKey);
     throw new Error(`Invalid access key`);
   }
-  [scheme, rest] = accessKey.split('//');
+  [scheme, rest] = normalizedAccessKey.split('//');
   [auth, rest] = rest.split('@');
   [username, password] = auth.split(':');
   baseUrl = `${scheme}//${rest}`;
@@ -313,7 +304,9 @@ function parseAccessKey(accessKey) {
 }
 
 async function getAccessKey(base64Token) {
-  const token = Buffer.from(base64Token, 'base64').toString();
+  const token = Buffer.from(normalizeSecretValue(base64Token), 'base64')
+    .toString()
+    .trim();
   const options = {
     method: 'POST',
     port: 443,
@@ -321,8 +314,13 @@ async function getAccessKey(base64Token) {
   };
   return new Promise((resolve, reject) => {
     const req = https.request(new URL(token), options, res => {
+      let responseBody = '';
+      res.setEncoding('utf8');
       res.on('data', d => {
-        resolve(d.toString());
+        responseBody += d;
+      });
+      res.on('end', () => {
+        resolve(normalizeSecretValue(responseBody));
       });
     });
     req.on('error', e => {
@@ -330,6 +328,37 @@ async function getAccessKey(base64Token) {
     });
     req.end();
   });
+}
+
+async function resolveAccessKey() {
+  let accessKey = normalizeSecretValue(
+    secretsService.get(SecretName.simplefin_accessKey),
+  );
+
+  if (accessKey != null && accessKey !== 'Forbidden') {
+    try {
+      parseAccessKey(accessKey);
+      return accessKey;
+    } catch {
+      accessKey = null;
+    }
+  }
+
+  const token = normalizeSecretValue(
+    secretsService.get(SecretName.simplefin_token),
+  );
+  if (token == null || token === 'Forbidden') {
+    throw new Error('No token');
+  }
+
+  accessKey = await getAccessKey(token);
+  if (accessKey == null || accessKey === 'Forbidden') {
+    throw new Error('No access key');
+  }
+
+  parseAccessKey(accessKey);
+  secretsService.set(SecretName.simplefin_accessKey, accessKey);
+  return accessKey;
 }
 
 async function getTransactions(accessKey, accounts, startDate, endDate) {

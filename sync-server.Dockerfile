@@ -1,13 +1,13 @@
 FROM node:22-bookworm AS deps
 
 # Install required packages
-RUN apt-get update && apt-get install -y openssl
+RUN apt-get update && apt-get install -y git openssl
 
 WORKDIR /app
 
 # Copy only the files needed for installing dependencies
 COPY .yarn ./.yarn
-COPY yarn.lock package.json .yarnrc.yml tsconfig.json ./
+COPY yarn.lock package.json .yarnrc.yml tsconfig.json lage.config.js ./
 COPY packages/api/package.json packages/api/package.json
 COPY packages/component-library/package.json packages/component-library/package.json
 COPY packages/crdt/package.json packages/crdt/package.json
@@ -28,6 +28,15 @@ WORKDIR /app
 
 COPY packages/ ./packages/
 
+# Lage expects to run inside a git repository for hashing/workspace metadata.
+# The Docker build context excludes the host .git directory, so create a
+# throwaway repository from the copied source tree.
+RUN git init \
+    && git config user.email "container-build@example.com" \
+    && git config user.name "Container Build" \
+    && git add . \
+    && git commit -m "Container build context"
+
 # Increase memory limit for the build process to 8GB
 ENV NODE_OPTIONS=--max_old_space_size=8192
 
@@ -36,12 +45,17 @@ RUN yarn build:server
 # Focus the workspaces in production mode (including @actual-app/web you just built)
 RUN yarn workspaces focus @actual-app/sync-server --production
 
-# Remove symbolic links for @actual-app/web and @actual-app/sync-server
-RUN rm -rf ./node_modules/@actual-app/web ./node_modules/@actual-app/sync-server
+# Dereference yarn workspace symlinks so the runtime image can copy node_modules
+# without also copying the entire /app/packages tree.
+RUN cp -RL node_modules node_modules.real \
+    && rm -rf node_modules \
+    && mv node_modules.real node_modules
 
-# Copy in the @actual-app/web artifacts manually, so we don't need the entire packages folder
-COPY ./packages/desktop-client/package.json ./node_modules/@actual-app/web/package.json
-RUN cp -r ./packages/desktop-client/build ./node_modules/@actual-app/web/build
+# Strip dev-only content from dereferenced workspace packages to keep the final
+# image leaner while preserving built artifacts.
+RUN find node_modules/@actual-app -maxdepth 2 -type d \
+    \( -name src -o -name e2e -o -name __tests__ -o -name __mocks__ -o -name tests -o -name test -o -name build-stats \) \
+    -exec rm -rf {} +
 
 FROM node:22-bookworm-slim AS prod
 

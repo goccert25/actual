@@ -19,3 +19,14 @@ services:
       retries: 3
       start_period: 20s
     restart: unless-stopped
+
+  actual-ai:
+    image: docker.io/sakowicz/actual-ai:2.3.1
+    profiles: ['ai']
+    depends_on:
+      - actual
+    environment:
+      ACTUAL_SERVER_URL: http://actual:5006
+    env_file:
+      - .env.actual-ai
+    restart: unless-stopped
