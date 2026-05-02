@@ -316,6 +316,10 @@ function buildVenmoNotes(record: Record<string, string>): string | null {
     parts.push(`[Status: ${record.Status}]`);
   }
 
+  if (record['Funding Source']) {
+    parts.push(`[Venmo Funding Source: ${record['Funding Source']}]`);
+  }
+
   if (record.Note) {
     parts.push(record.Note);
   } else if (record.Type) {

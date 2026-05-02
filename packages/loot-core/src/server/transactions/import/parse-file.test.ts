@@ -235,7 +235,7 @@ describe('File import', () => {
         date: '2026-04-01',
         imported_id: 'venmo:111',
         imported_payee: 'Payment / Complete / George Tong -> Serena Tong',
-        notes: 'Dog sitter',
+        notes: '[Venmo Funding Source: Venmo balance] Dog sitter',
         payee_name: 'Serena Tong',
       },
       {
