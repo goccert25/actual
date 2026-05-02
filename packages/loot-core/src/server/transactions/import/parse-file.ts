@@ -279,9 +279,8 @@ function normalizeVenmoTransaction(
     date: record.Datetime.slice(0, 10),
     imported_id: `venmo:${record.ID || buildVenmoFallbackId(record)}`,
     payee_name: counterparty,
-    imported_payee: `${type}${status ? ` / ${status}` : ''} / ${
-      from || '(blank)'
-    } -> ${to || '(blank)'}`,
+    imported_payee: `${type}${status ? ` / ${status}` : ''} / ${from || '(blank)'
+      } -> ${to || '(blank)'}`,
     notes: note,
   };
 }
@@ -316,14 +315,14 @@ function buildVenmoNotes(record: Record<string, string>): string | null {
     parts.push(`[Status: ${record.Status}]`);
   }
 
-  if (record['Funding Source']) {
-    parts.push(`[Venmo Funding Source: ${record['Funding Source']}]`);
-  }
-
   if (record.Note) {
     parts.push(record.Note);
   } else if (record.Type) {
     parts.push(record.Type);
+  }
+
+  if (record['Funding Source']) {
+    parts.push(`[Venmo Funding Source: ${record['Funding Source']}]`);
   }
 
   return parts.length > 0 ? parts.join(' ') : null;
