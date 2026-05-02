@@ -1,8 +1,13 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-import type { RuleEntity } from '@actual-app/core/types/models';
+import type {
+  RuleEntity,
+  TransactionEntity,
+} from '@actual-app/core/types/models';
 import { vi } from 'vitest';
+
+import { wealthfrontVenmoCleanupAutomation } from './automations/wealthfrontVenmoCleanup';
 
 import * as api from './index';
 
@@ -899,6 +904,382 @@ describe('API CRUD operations', () => {
       '2023-11-30',
     );
     expect(transactions[0].notes).toBeNull();
+  });
+
+  test('Automations: dry-run previews changes and apply commits them', async () => {
+    const accountId = await api.createAccount(
+      { name: 'automation-account' },
+      0,
+    );
+    const payeeId = await api.createPayee({ name: 'automation-payee' });
+
+    await api.addTransactions(
+      accountId,
+      [
+        {
+          date: '2023-11-03',
+          amount: 100,
+          payee: payeeId,
+          notes: 'original notes',
+        },
+        {
+          date: '2023-11-04',
+          amount: 200,
+          payee: payeeId,
+          notes: 'duplicate notes',
+        },
+      ],
+      { runTransfers: false },
+    );
+
+    const automation = api.defineAutomation({
+      name: 'test notes cleanup',
+      async plan(ctx) {
+        const plan = ctx.createPlan();
+        const transactions = await ctx.queryTransactions({
+          accountIds: [accountId],
+          startDate: '2023-11-01',
+          endDate: '2023-11-30',
+          splits: 'none',
+        });
+
+        const transactionToUpdate = transactions.find(t => t.amount === 100);
+        const transactionToDelete = transactions.find(t => t.amount === 200);
+
+        if (transactionToUpdate) {
+          plan.updateTransaction(
+            transactionToUpdate.id,
+            { notes: 'updated by automation' },
+            'Copy notes from matched transaction',
+          );
+        }
+
+        if (transactionToDelete) {
+          plan.deleteTransaction(
+            transactionToDelete.id,
+            'Remove duplicate transaction',
+          );
+        }
+
+        return plan;
+      },
+    });
+
+    const dryRun = await api.runAutomation(automation);
+
+    expect(dryRun.applied).toBe(false);
+    expect(dryRun.summary).toMatchObject({
+      updates: 1,
+      deletes: 1,
+      errors: 0,
+    });
+    expect(dryRun.previews).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'ready',
+          after: expect.arrayContaining([
+            expect.objectContaining({ notes: 'updated by automation' }),
+          ]),
+        }),
+      ]),
+    );
+
+    let transactions = await api.getTransactions(
+      accountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    expect(transactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ notes: 'original notes' }),
+        expect.objectContaining({ notes: 'duplicate notes' }),
+      ]),
+    );
+
+    const applied = await api.runAutomation(automation, { dryRun: false });
+
+    expect(applied.applied).toBe(true);
+    transactions = await api.getTransactions(
+      accountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    expect(transactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          amount: 100,
+          notes: 'updated by automation',
+        }),
+      ]),
+    );
+    expect(transactions).toHaveLength(1);
+  });
+
+  test('Automations: linkTransfer marks two existing transactions as a transfer', async () => {
+    const fromAccountId = await api.createAccount(
+      { name: 'automation-checking' },
+      0,
+    );
+    const toAccountId = await api.createAccount(
+      { name: 'automation-savings' },
+      0,
+    );
+
+    await api.addTransactions(
+      fromAccountId,
+      [
+        {
+          date: '2023-11-03',
+          amount: -500,
+          notes: 'transfer out',
+        },
+      ],
+      { runTransfers: false },
+    );
+    await api.addTransactions(
+      toAccountId,
+      [
+        {
+          date: '2023-11-04',
+          amount: 500,
+          notes: 'transfer in',
+        },
+      ],
+      { runTransfers: false },
+    );
+
+    const [fromTransaction] = (await api.getTransactions(
+      fromAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    )) as TransactionEntity[];
+    const [toTransaction] = (await api.getTransactions(
+      toAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    )) as TransactionEntity[];
+
+    const automation = api.defineAutomation({
+      name: 'test transfer link',
+      plan(ctx) {
+        const plan = ctx.createPlan();
+        plan.linkTransfer(
+          fromTransaction.id,
+          toTransaction.id,
+          'Matched equal and opposite transfers',
+        );
+        return plan;
+      },
+    });
+
+    const result = await api.runAutomation(automation, { dryRun: false });
+
+    expect(result.applied).toBe(true);
+    expect(result.summary).toMatchObject({
+      transferLinks: 1,
+      errors: 0,
+    });
+
+    const payees = await api.getPayees();
+    const fromTransferPayee = payees.find(
+      payee => payee.transfer_acct === fromAccountId,
+    );
+    const toTransferPayee = payees.find(
+      payee => payee.transfer_acct === toAccountId,
+    );
+
+    const [updatedFromTransaction] = await api.getTransactions(
+      fromAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    const [updatedToTransaction] = await api.getTransactions(
+      toAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+
+    expect(updatedFromTransaction).toMatchObject({
+      id: fromTransaction.id,
+      transfer_id: toTransaction.id,
+      payee: toTransferPayee?.id,
+      category: null,
+    });
+    expect(updatedToTransaction).toMatchObject({
+      id: toTransaction.id,
+      transfer_id: fromTransaction.id,
+      payee: fromTransferPayee?.id,
+      category: null,
+    });
+  });
+
+  test('Automations: Wealthfront Venmo cleanup copies notes and removes duplicates for George and Helen', async () => {
+    const georgeWealthfrontAccountId = await api.createAccount(
+      { name: 'George Wealthfront Cash' },
+      0,
+    );
+    const georgeVenmoAccountId = await api.createAccount(
+      { name: 'George Venmo' },
+      0,
+    );
+    const helenWealthfrontAccountId = await api.createAccount(
+      { name: 'Helen Wealthfront Cash' },
+      0,
+    );
+    const helenVenmoAccountId = await api.createAccount(
+      { name: 'Helen Venmo' },
+      0,
+    );
+
+    const transferToVenmoPayeeId = await api.createPayee({
+      name: 'Transfer to Venmo - George',
+    });
+    const venmoPaymentPayeeId = await api.createPayee({
+      name: 'Venmo-Payment to Helen',
+    });
+
+    await api.addTransactions(
+      georgeWealthfrontAccountId,
+      [
+        {
+          date: '2023-11-03',
+          amount: -1234,
+          payee: transferToVenmoPayeeId,
+          notes: 'George Wealthfront note',
+        },
+      ],
+      { runTransfers: false },
+    );
+    await api.addTransactions(
+      georgeVenmoAccountId,
+      [
+        {
+          date: '2023-11-03',
+          amount: -1234,
+          notes: 'George Venmo note',
+        },
+        {
+          date: '2023-11-20',
+          amount: -1234,
+          notes: 'George Venmo note outside window',
+        },
+      ],
+      { runTransfers: false },
+    );
+    await api.addTransactions(
+      helenWealthfrontAccountId,
+      [
+        {
+          date: '2023-11-04',
+          amount: -5678,
+          payee: venmoPaymentPayeeId,
+        },
+      ],
+      { runTransfers: false },
+    );
+    await api.addTransactions(
+      helenVenmoAccountId,
+      [
+        {
+          date: '2023-11-04',
+          amount: -5678,
+          notes: 'Helen Venmo note',
+        },
+      ],
+      { runTransfers: false },
+    );
+
+    const dryRun = await api.runAutomation(wealthfrontVenmoCleanupAutomation);
+
+    expect(dryRun.applied).toBe(false);
+    expect(dryRun.summary).toMatchObject({
+      updates: 2,
+      deletes: 2,
+      skips: 0,
+      errors: 0,
+    });
+    expect(dryRun.previews).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operation: expect.objectContaining({
+            type: 'update-transaction',
+            reason: 'Copy notes from matching Venmo transaction',
+          }),
+          after: expect.arrayContaining([
+            expect.objectContaining({
+              notes: 'George Wealthfront note\nGeorge Venmo note',
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          operation: expect.objectContaining({
+            type: 'update-transaction',
+            reason: 'Copy notes from matching Venmo transaction',
+          }),
+          after: expect.arrayContaining([
+            expect.objectContaining({
+              notes: 'Helen Venmo note',
+            }),
+          ]),
+        }),
+      ]),
+    );
+
+    let georgeWealthfrontTransactions = await api.getTransactions(
+      georgeWealthfrontAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    expect(georgeWealthfrontTransactions[0].notes).toBe(
+      'George Wealthfront note',
+    );
+
+    const applied = await api.runAutomation(wealthfrontVenmoCleanupAutomation, {
+      dryRun: false,
+    });
+
+    expect(applied.applied).toBe(true);
+
+    georgeWealthfrontTransactions = await api.getTransactions(
+      georgeWealthfrontAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    const georgeVenmoTransactions = await api.getTransactions(
+      georgeVenmoAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    const helenWealthfrontTransactions = await api.getTransactions(
+      helenWealthfrontAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    const helenVenmoTransactions = await api.getTransactions(
+      helenVenmoAccountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+
+    expect(georgeWealthfrontTransactions).toEqual([
+      expect.objectContaining({
+        amount: -1234,
+        notes: 'George Wealthfront note\nGeorge Venmo note',
+      }),
+    ]);
+    expect(georgeVenmoTransactions).toEqual([
+      expect.objectContaining({
+        amount: -1234,
+        notes: 'George Venmo note outside window',
+      }),
+    ]);
+    expect(helenWealthfrontTransactions).toEqual([
+      expect.objectContaining({
+        amount: -5678,
+        notes: 'Helen Venmo note',
+      }),
+    ]);
+    expect(helenVenmoTransactions).toHaveLength(0);
   });
 
   test('Transactions: reimportDeleted=false prevents reimporting deleted transactions', async () => {

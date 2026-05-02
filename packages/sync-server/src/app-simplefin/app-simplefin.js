@@ -109,9 +109,9 @@ app.post(
         data: !Array.isArray(accountId)
           ? results.errors[accountId][0]
           : {
-            ...response,
-            errors: results.errors,
-          },
+              ...response,
+              errors: results.errors,
+            },
       });
       return;
     }

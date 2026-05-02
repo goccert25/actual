@@ -3,6 +3,8 @@ import type { InitConfig, lib } from '@actual-app/core/server/main';
 
 import { validateNodeVersion } from './validateNodeVersion';
 
+export * from './automation';
+export * from './automations';
 export * from './methods';
 export * as utils from './utils';
 

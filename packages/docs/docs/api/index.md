@@ -74,6 +74,59 @@ let api = require('@actual-app/api');
 
 Heads up! You probably don't want to hard-code the passwords like that, especially if you'll be using Git to track your code. You can use environment variables to store the passwords instead, or read them in from a file, or request them interactively when running the script instead.
 
+### Running Automations
+
+The code-first automation runner in the monorepo supports two execution modes:
+
+- Local budget mode: use this if you have budget folders on disk already. Point
+  `ACTUAL_DATA_DIR` at the directory that contains budget folders such as
+  `<budget-id>/metadata.json` and `<budget-id>/db.sqlite`. In a desktop setup,
+  this is usually `~/Documents/Actual`.
+- Sync-server mode: use this if Actual is running through a sync server,
+  including Docker deployments. Point `ACTUAL_DATA_DIR` at a local cache
+  directory, then provide `ACTUAL_SERVER_URL`, `ACTUAL_PASSWORD` or
+  `ACTUAL_SESSION_TOKEN`, and `ACTUAL_SYNC_ID`.
+
+Examples from the repository root:
+
+```sh
+# List registered automations
+yarn workspace @actual-app/api automation:list
+
+# List locally available budgets
+ACTUAL_DATA_DIR=~/Documents/Actual \
+yarn workspace @actual-app/api automation:budgets
+
+# Dry run against a local budget folder
+ACTUAL_DATA_DIR=~/Documents/Actual \
+ACTUAL_BUDGET_ID=<budget-id> \
+ACTUAL_AUTOMATION="Wealthfront Venmo cleanup" \
+yarn workspace @actual-app/api automation
+
+# Dry run against a running sync server
+ACTUAL_DATA_DIR=/tmp/actual-automation-cache \
+ACTUAL_SERVER_URL=http://localhost:5006 \
+ACTUAL_PASSWORD=your-server-password \
+ACTUAL_SYNC_ID=08486f74-b28d-4f3f-93c8-6b56a23681e4 \
+ACTUAL_AUTOMATION="Wealthfront Venmo cleanup" \
+yarn workspace @actual-app/api automation
+
+# Apply changes against a running sync server
+ACTUAL_DATA_DIR=/tmp/actual-automation-cache \
+ACTUAL_SERVER_URL=http://localhost:5006 \
+ACTUAL_PASSWORD=your-server-password \
+ACTUAL_SYNC_ID=08486f74-b28d-4f3f-93c8-6b56a23681e4 \
+ACTUAL_AUTOMATION="Wealthfront Venmo cleanup" \
+ACTUAL_APPLY=true \
+yarn workspace @actual-app/api automation
+```
+
+If your sync server is running in Docker and port `5006` is published to the
+host, `ACTUAL_SERVER_URL` is usually `http://localhost:5006`.
+
+In sync-server mode, `ACTUAL_DATA_DIR` is only the API client's local cache.
+Do not point it at the sync server's own storage directory.
+
 ### Self-Signed Https Certificates
 
 If the serverURL is using [self-signed or custom CA certificates](../config/https.md), additional Node.js configuration will be needed for the connections to succeed.

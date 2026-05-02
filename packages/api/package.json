@@ -41,6 +41,9 @@
     }
   },
   "scripts": {
+    "automation": "ACTUAL_AUTOMATION_RUNNER=true vitest --run automations/runAutomation.test.ts",
+    "automation:budgets": "ACTUAL_AUTOMATION_RUNNER=true ACTUAL_AUTOMATION_LIST_BUDGETS=true vitest --run automations/runAutomation.test.ts",
+    "automation:list": "ACTUAL_AUTOMATION_RUNNER=true ACTUAL_AUTOMATION_LIST=true vitest --run automations/runAutomation.test.ts",
     "build": "vite build && tsgo --emitDeclarationOnly",
     "test": "vitest --run",
     "typecheck": "tsgo -b && tsc-strict"

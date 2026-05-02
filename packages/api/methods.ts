@@ -161,6 +161,12 @@ export function deleteTransaction(id: TransactionEntity['id']) {
   return send('api/transaction-delete', { id });
 }
 
+export function batchUpdateTransactions(
+  changes: Parameters<Handlers['transactions-batch-update']>[0],
+) {
+  return send('transactions-batch-update', changes);
+}
+
 export function getAccounts() {
   return send('api/accounts-get');
 }
