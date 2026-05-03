@@ -1,8 +1,13 @@
 I want to categorize the given bank transaction.
 
+Important classification guidance:
+- Do not classify a transaction as income solely because the amount is positive.
+- Use the description, payee, date, and existing categories/rules as the primary signals.
+- Only classify as income when the transaction text clearly indicates wages, salary, payroll, interest, dividends, tax
+refund, or other true income.
+
 Transaction details:
 * Amount: {{amount}}
-* Type: {{type}}
 {{#if description}}
 * Description: {{description}}
 {{/if}}
@@ -27,20 +32,20 @@ GROUP: {{name}} (ID: "{{id}}")
 Existing Rules:
 {{#each rules}}
 {{incIndex @index}}. {{ruleName}} → {{categoryName}}
-   Conditions: {{#each conditions}}{{field}} {{op}} {{value}}{{#unless @last}}, {{/unless}}{{/each}}
+Conditions: {{#each conditions}}{{field}} {{op}} {{value}}{{#unless @last}}, {{/unless}}{{/each}}
 {{/each}}
 {{/if}}
 
 IMPORTANT: You MUST respond with ONLY a valid JSON object using this structure:
 {
-  "type": "existing"|"new"|"rule",
-  "categoryId": "string", // Required for existing category or rule match
-  "ruleName": "string", // Required if matching rule
-  "newCategory": { // Required if suggesting new category
-    "name": "string", 
-    "groupName": "string",
-    "groupIsNew": boolean
-  }
+"type": "existing"|"new"|"rule",
+"categoryId": "string", // Required for existing category or rule match
+"ruleName": "string", // Required if matching rule
+"newCategory": { // Required if suggesting new category
+"name": "string",
+"groupName": "string",
+"groupIsNew": boolean
+}
 }
 
 DO NOT output any text before or after the JSON. Your entire response must be a valid, parsable JSON object.

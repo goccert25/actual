@@ -51,8 +51,7 @@ class PromptGenerator implements PromptGeneratorI {
       return template({
         categoryGroups: groupsWithCategories,
         rules: rulesDescription,
-        amount: Math.abs(transaction.amount),
-        type: transaction.amount > 0 ? 'Income' : 'Outcome',
+        amount: transaction.amount,
         description: transaction.notes ?? '',
         payee: payeeName ?? '',
         importedPayee: transaction.imported_payee ?? '',
