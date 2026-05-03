@@ -4,6 +4,9 @@
 /data2
 Actual-*
 !actual-server.js
+!actual-ai.Dockerfile
+!actual-ai/
+!actual-ai/**
 **/xcuserdata/*
 export-2020-01-10.csv
 
@@ -23,6 +26,7 @@ export-2020-01-10.csv
 
 # JavaScript
 node_modules
+actual-ai/dist
 packages/api/app/bundle.api.js
 packages/api/app/stats.json
 packages/api/dist

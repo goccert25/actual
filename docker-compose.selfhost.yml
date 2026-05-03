@@ -21,10 +21,14 @@ services:
     restart: unless-stopped
 
   actual-ai:
-    image: docker.io/sakowicz/actual-ai:2.3.1
+    build:
+      context: .
+      dockerfile: actual-ai.Dockerfile
+    image: ${ACTUAL_AI_IMAGE_NAME:-actual-ai-local:dev}
     profiles: ['ai']
     depends_on:
-      - actual
+      actual:
+        condition: service_healthy
     environment:
       ACTUAL_SERVER_URL: http://actual:5006
     env_file:

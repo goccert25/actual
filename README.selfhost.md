@@ -49,6 +49,11 @@ http://localhost:5006
 `actual-ai` is wired in as an optional sidecar service behind the `ai` compose
 profile. It is not started unless you explicitly enable that profile.
 
+In this fork, `actual-ai` is built from the vendored source in
+[`actual-ai/`](./actual-ai) instead of pulling the published Docker Hub image.
+That keeps it pinned to this repo's local `@actual-app/api` and avoids budget
+schema drift when this fork adds newer migrations.
+
 1. Copy the AI env template:
 
 ```bash
@@ -79,7 +84,7 @@ docker compose --env-file .env.selfhost --profile ai -f docker-compose.selfhost.
 This starts:
 
 - `actual`
-- `actual-ai`
+- `actual-ai` built from local source in this repo
 
 If you want to keep running Actual without AI, omit `--profile ai`.
 
@@ -103,6 +108,10 @@ If you are running with Actual AI enabled:
 ```bash
 docker compose --env-file .env.selfhost --profile ai -f docker-compose.selfhost.yml up --build -d
 ```
+
+That rebuilds both the Actual server and the vendored `actual-ai` sidecar
+against the current source tree, so the API schema and migration list stay in
+lockstep.
 
 ## Where The Data Lives
 

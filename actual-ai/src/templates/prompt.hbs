@@ -1,0 +1,55 @@
+I want to categorize the given bank transaction.
+
+Transaction details:
+* Amount: {{amount}}
+* Type: {{type}}
+{{#if description}}
+* Description: {{description}}
+{{/if}}
+{{#if payee}}
+* Payee: {{payee}}
+{{^}}
+* Payee: {{importedPayee}}
+{{/if}}
+{{#if date}}
+* Date: {{date}}
+{{/if}}
+
+Existing categories by group:
+{{#each categoryGroups}}
+GROUP: {{name}} (ID: "{{id}}")
+{{#each categories}}
+* {{name}} (ID: "{{id}}")
+{{/each}}
+{{/each}}
+
+{{#if rules.length}}
+Existing Rules:
+{{#each rules}}
+{{incIndex @index}}. {{ruleName}} → {{categoryName}}
+   Conditions: {{#each conditions}}{{field}} {{op}} {{value}}{{#unless @last}}, {{/unless}}{{/each}}
+{{/each}}
+{{/if}}
+
+IMPORTANT: You MUST respond with ONLY a valid JSON object using this structure:
+{
+  "type": "existing"|"new"|"rule",
+  "categoryId": "string", // Required for existing category or rule match
+  "ruleName": "string", // Required if matching rule
+  "newCategory": { // Required if suggesting new category
+    "name": "string", 
+    "groupName": "string",
+    "groupIsNew": boolean
+  }
+}
+
+DO NOT output any text before or after the JSON. Your entire response must be a valid, parsable JSON object.
+
+Examples:
+{"type": "existing", "categoryId": "abc123"}
+{"type": "rule", "categoryId": "def456", "ruleName": "Coffee Shop"}
+{"type": "new", "newCategory": {"name": "Pet Supplies", "groupName": "Pets", "groupIsNew": true}}
+
+{{#if hasWebSearchTool}}
+You can use the web search tool to find more information about the transaction.
+{{/if}}
