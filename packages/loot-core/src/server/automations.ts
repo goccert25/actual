@@ -37,6 +37,7 @@ const PEOPLE = ['George', 'Helen'] as const;
 const MATCH_WINDOW_DAYS = 10;
 const WEALTHFRONT_ACCOUNT_KEYWORD = 'Wealthfront';
 const VENMO_ACCOUNT_KEYWORD = 'Venmo';
+const REQUIRED_VENMO_NOTE_KEYWORD = 'Wealthfront';
 const WEALTHFRONT_PAYEE_PREFIXES = [
   'Transfer to Venmo',
   'Venmo-Payment',
@@ -110,6 +111,7 @@ export const wealthfrontVenmoCleanupAutomation = defineAutomation({
           return (
             !matchedVenmoTransactionIds.has(venmoTransaction.id) &&
             venmoTransaction.amount === wealthfrontTransaction.amount &&
+            venmoTransactionHasWealthfrontNote(venmoTransaction) &&
             ctx.isWithinDays(
               venmoTransaction.date,
               wealthfrontTransaction.date,
@@ -117,6 +119,10 @@ export const wealthfrontVenmoCleanupAutomation = defineAutomation({
             )
           );
         });
+
+        if (matches.length === 0) {
+          continue;
+        }
 
         if (matches.length !== 1) {
           plan.skip(
@@ -134,16 +140,15 @@ export const wealthfrontVenmoCleanupAutomation = defineAutomation({
         const [venmoTransaction] = matches;
         matchedVenmoTransactionIds.add(venmoTransaction.id);
 
-        const mergedNotes = mergeNotes(
-          wealthfrontTransaction.notes,
-          venmoTransaction.notes,
-        );
+        const replacementNotes = normalizeNotes(venmoTransaction.notes);
 
-        if (mergedNotes !== normalizeNotes(wealthfrontTransaction.notes)) {
+        if (
+          replacementNotes !== normalizeNotes(wealthfrontTransaction.notes)
+        ) {
           plan.updateTransaction(
             wealthfrontTransaction.id,
-            { notes: mergedNotes },
-            'Copy notes from matching Venmo transaction',
+            { notes: replacementNotes },
+            'Replace notes with matching Venmo transaction notes',
             {
               person,
               venmoTransactionId: venmoTransaction.id,
@@ -1068,26 +1073,10 @@ function isWealthfrontVenmoTransaction(
   );
 }
 
-function mergeNotes(
-  wealthfrontNotes: TransactionEntity['notes'] | null,
-  venmoNotes: TransactionEntity['notes'] | null,
-) {
-  const existingNotes = normalizeNotes(wealthfrontNotes);
-  const notesToAdd = normalizeNotes(venmoNotes);
-
-  if (!notesToAdd) {
-    return existingNotes;
-  }
-
-  if (!existingNotes) {
-    return notesToAdd;
-  }
-
-  if (existingNotes.includes(notesToAdd)) {
-    return existingNotes;
-  }
-
-  return `${existingNotes}\n${notesToAdd}`;
+function venmoTransactionHasWealthfrontNote(transaction: TransactionEntity) {
+  return normalizeNotes(transaction.notes)
+    .toLowerCase()
+    .includes(REQUIRED_VENMO_NOTE_KEYWORD.toLowerCase());
 }
 
 function normalizeNotes(notes: TransactionEntity['notes'] | null) {

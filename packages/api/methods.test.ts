@@ -1147,6 +1147,12 @@ describe('API CRUD operations', () => {
           payee: transferToVenmoPayeeId,
           notes: 'George Wealthfront note',
         },
+        {
+          date: '2023-11-09',
+          amount: -2222,
+          payee: transferToVenmoPayeeId,
+          notes: 'George unmatched Wealthfront note',
+        },
       ],
       { runTransfers: false },
     );
@@ -1156,12 +1162,17 @@ describe('API CRUD operations', () => {
         {
           date: '2023-11-03',
           amount: -1234,
-          notes: 'George Venmo note',
+          notes: 'George Venmo note [Wealthfront funding]',
         },
         {
           date: '2023-11-20',
           amount: -1234,
-          notes: 'George Venmo note outside window',
+          notes: 'George Venmo note outside window [Wealthfront funding]',
+        },
+        {
+          date: '2023-11-09',
+          amount: -2222,
+          notes: 'George Venmo note without keyword',
         },
       ],
       { runTransfers: false },
@@ -1185,6 +1196,11 @@ describe('API CRUD operations', () => {
           amount: -5678,
           notes: 'Helen Venmo note',
         },
+        {
+          date: '2023-11-04',
+          amount: -5678,
+          notes: 'Helen Venmo note [Wealthfront funding]',
+        },
       ],
       { runTransfers: false },
     );
@@ -1203,22 +1219,22 @@ describe('API CRUD operations', () => {
         expect.objectContaining({
           operation: expect.objectContaining({
             type: 'update-transaction',
-            reason: 'Copy notes from matching Venmo transaction',
+            reason: 'Replace notes with matching Venmo transaction notes',
           }),
           after: expect.arrayContaining([
             expect.objectContaining({
-              notes: 'George Wealthfront note\nGeorge Venmo note',
+              notes: 'George Venmo note [Wealthfront funding]',
             }),
           ]),
         }),
         expect.objectContaining({
           operation: expect.objectContaining({
             type: 'update-transaction',
-            reason: 'Copy notes from matching Venmo transaction',
+            reason: 'Replace notes with matching Venmo transaction notes',
           }),
           after: expect.arrayContaining([
             expect.objectContaining({
-              notes: 'Helen Venmo note',
+              notes: 'Helen Venmo note [Wealthfront funding]',
             }),
           ]),
         }),
@@ -1238,7 +1254,7 @@ describe('API CRUD operations', () => {
           operationType: 'update-transaction',
           rowRole: 'after',
           accountName: 'George Wealthfront Cash',
-          notes: 'George Wealthfront note\nGeorge Venmo note',
+          notes: 'George Venmo note [Wealthfront funding]',
           paymentAmount: 1234,
           changedFields: expect.arrayContaining(['notes']),
         }),
@@ -1246,7 +1262,7 @@ describe('API CRUD operations', () => {
           operationType: 'delete-transaction',
           rowRole: 'current',
           accountName: 'Helen Venmo',
-          notes: 'Helen Venmo note',
+          notes: 'Helen Venmo note [Wealthfront funding]',
           paymentAmount: 5678,
         }),
       ]),
@@ -1257,9 +1273,11 @@ describe('API CRUD operations', () => {
       '2023-11-01',
       '2023-11-30',
     );
-    expect(georgeWealthfrontTransactions[0].notes).toBe(
-      'George Wealthfront note',
-    );
+    expect(
+      georgeWealthfrontTransactions.find(
+        transaction => transaction.date === '2023-11-03',
+      )?.notes,
+    ).toBe('George Wealthfront note');
 
     const applied = await api.runAutomation(wealthfrontVenmoCleanupAutomation, {
       dryRun: false,
@@ -1288,25 +1306,48 @@ describe('API CRUD operations', () => {
       '2023-11-30',
     );
 
-    expect(georgeWealthfrontTransactions).toEqual([
-      expect.objectContaining({
-        amount: -1234,
-        notes: 'George Wealthfront note\nGeorge Venmo note',
-      }),
-    ]);
-    expect(georgeVenmoTransactions).toEqual([
-      expect.objectContaining({
-        amount: -1234,
-        notes: 'George Venmo note outside window',
-      }),
-    ]);
+    expect(georgeWealthfrontTransactions).toHaveLength(2);
+    expect(georgeWealthfrontTransactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          date: '2023-11-03',
+          amount: -1234,
+          notes: 'George Venmo note [Wealthfront funding]',
+        }),
+        expect.objectContaining({
+          date: '2023-11-09',
+          amount: -2222,
+          notes: 'George unmatched Wealthfront note',
+        }),
+      ]),
+    );
+    expect(georgeVenmoTransactions).toHaveLength(2);
+    expect(georgeVenmoTransactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          date: '2023-11-20',
+          amount: -1234,
+          notes: 'George Venmo note outside window [Wealthfront funding]',
+        }),
+        expect.objectContaining({
+          date: '2023-11-09',
+          amount: -2222,
+          notes: 'George Venmo note without keyword',
+        }),
+      ]),
+    );
     expect(helenWealthfrontTransactions).toEqual([
+      expect.objectContaining({
+        amount: -5678,
+        notes: 'Helen Venmo note [Wealthfront funding]',
+      }),
+    ]);
+    expect(helenVenmoTransactions).toEqual([
       expect.objectContaining({
         amount: -5678,
         notes: 'Helen Venmo note',
       }),
     ]);
-    expect(helenVenmoTransactions).toHaveLength(0);
   });
 
   test('Transactions: reimportDeleted=false prevents reimporting deleted transactions', async () => {
