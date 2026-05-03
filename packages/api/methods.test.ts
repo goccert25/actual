@@ -1224,6 +1224,33 @@ describe('API CRUD operations', () => {
         }),
       ]),
     );
+    expect(dryRun.tableRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationType: 'update-transaction',
+          rowRole: 'before',
+          accountName: 'George Wealthfront Cash',
+          notes: 'George Wealthfront note',
+          paymentAmount: 1234,
+          changedFields: expect.arrayContaining(['notes']),
+        }),
+        expect.objectContaining({
+          operationType: 'update-transaction',
+          rowRole: 'after',
+          accountName: 'George Wealthfront Cash',
+          notes: 'George Wealthfront note\nGeorge Venmo note',
+          paymentAmount: 1234,
+          changedFields: expect.arrayContaining(['notes']),
+        }),
+        expect.objectContaining({
+          operationType: 'delete-transaction',
+          rowRole: 'current',
+          accountName: 'Helen Venmo',
+          notes: 'Helen Venmo note',
+          paymentAmount: 5678,
+        }),
+      ]),
+    );
 
     let georgeWealthfrontTransactions = await api.getTransactions(
       georgeWealthfrontAccountId,

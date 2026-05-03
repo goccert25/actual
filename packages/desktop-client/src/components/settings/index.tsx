@@ -30,6 +30,7 @@ import { useDispatch, useSelector } from '#redux';
 import { AuthSettings } from './AuthSettings';
 import { Backups } from './Backups';
 import { BudgetTypeSettings } from './BudgetTypeSettings';
+import { CodeAutomations } from './CodeAutomations';
 import { CurrencySettings } from './Currency';
 import { EncryptionSettings } from './Encryption';
 import { ExperimentalFeatures } from './Experimental';
@@ -251,6 +252,7 @@ export function Settings() {
           <ResetCache />
           <ResetSync />
           <RepairTransactions />
+          <CodeAutomations />
           <ExperimentalFeatures />
         </AdvancedToggle>
       </View>
