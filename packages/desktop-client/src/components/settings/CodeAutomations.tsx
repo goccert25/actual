@@ -71,7 +71,7 @@ function getRowBackground(row: AutomationPreviewTableRow) {
   }
 
   if (row.operationType === 'delete-transaction') {
-    return theme.noticeBackgroundLight;
+    return theme.errorBackground;
   }
 
   if (row.rowRole === 'after') {

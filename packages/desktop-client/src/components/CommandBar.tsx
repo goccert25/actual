@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import {
+  SvgBolt,
   SvgCog,
   SvgLibrary,
   SvgPiggyBank,
@@ -115,6 +116,12 @@ export function CommandBar() {
       },
       { id: 'payees', name: t('Payees'), path: '/payees', Icon: SvgStoreFront },
       { id: 'rules', name: t('Rules'), path: '/rules', Icon: SvgTuning },
+      {
+        id: 'automations',
+        name: t('Automations'),
+        path: '/automations',
+        Icon: SvgBolt,
+      },
       { id: 'tags', name: t('Tags'), path: '/tags', Icon: SvgTag },
       { id: 'settings', name: t('Settings'), path: '/settings', Icon: SvgCog },
       {

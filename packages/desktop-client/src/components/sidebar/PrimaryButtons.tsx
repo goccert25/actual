@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import {
+  SvgBolt,
   SvgCheveronDown,
   SvgCheveronRight,
   SvgCog,
@@ -35,6 +36,7 @@ export function PrimaryButtons() {
   const isActive = [
     '/payees',
     '/rules',
+    '/automations',
     '/bank-sync',
     '/settings',
     '/tools',
@@ -70,6 +72,12 @@ export function PrimaryButtons() {
             title={t('Rules')}
             Icon={SvgTuning}
             to="/rules"
+            indent={15}
+          />
+          <SecondaryItem
+            title={t('Automations')}
+            Icon={SvgBolt}
+            to="/automations"
             indent={15}
           />
           {isUsingServer && (

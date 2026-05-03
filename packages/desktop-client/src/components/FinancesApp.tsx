@@ -22,6 +22,7 @@ import { addNotification } from '#notifications/notificationsSlice';
 import { useDispatch, useSelector } from '#redux';
 
 import { UserAccessPage } from './admin/UserAccess/UserAccessPage';
+import { AutomationsPage } from './AutomationsPage';
 import { BankSyncStatus } from './BankSyncStatus';
 import { CommandBar } from './CommandBar';
 import { FeatureErrorFallback } from './FeatureErrorFallback';
@@ -309,6 +310,7 @@ export function FinancesApp() {
                     </ErrorBoundary>
                   }
                 />
+                <Route path="/automations" element={<AutomationsPage />} />
                 <Route
                   path="/bank-sync"
                   element={<NarrowAlternate name="BankSync" />}
