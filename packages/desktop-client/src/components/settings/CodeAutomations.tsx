@@ -179,13 +179,7 @@ function PreviewTable({
           const rowBackground = getRowBackground(row);
 
           return (
-            <View
-              key={row.id}
-              style={{
-                display: 'contents',
-                backgroundColor: rowBackground,
-              }}
-            >
+            <React.Fragment key={row.id}>
               <View style={{ backgroundColor: rowBackground }}>
                 <GridCell changed={row.changedFields.includes('date')}>
                   {formatPreviewDate(row.date, dateFormat)}
@@ -237,7 +231,7 @@ function PreviewTable({
               <View style={{ backgroundColor: rowBackground }}>
                 <GridCell>{row.error ?? row.reason}</GridCell>
               </View>
-            </View>
+            </React.Fragment>
           );
         })}
       </View>
