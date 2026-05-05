@@ -24,6 +24,13 @@ class TransactionFilterer {
     return transactions.filter((transaction) => filterFn(transaction));
   }
 
+  private flattenTransactions(transactions: TransactionEntity[]): TransactionEntity[] {
+    const parentTransactions = transactions.filter((transaction) => transaction.is_parent);
+    const nonParentTransactios = transactions.filter((transaction) => !transaction.is_parent);
+    const childrenTransactions = parentTransactions.flatMap((parent) => parent.subtransactions);
+    return [...nonParentTransactios, ...childrenTransactions].filter((transaction) => transaction !== undefined);
+  }
+
   public filterUncategorized(
     transactions: TransactionEntity[],
     accounts: APIAccountEntity[],
@@ -36,6 +43,9 @@ class TransactionFilterer {
     console.log(`Accounts off budget: ${accountsToSkip.length}`);
 
     let filteredTransactions = transactions;
+
+    // Remove parent transactions and flatten to children transactions
+    filteredTransactions = this.flattenTransactions(filteredTransactions);
 
     // Apply filters one by one
     filteredTransactions = this.applyFilter(
