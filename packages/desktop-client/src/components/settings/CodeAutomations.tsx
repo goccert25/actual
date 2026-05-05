@@ -68,23 +68,20 @@ function getRowBackground(row: AutomationPreviewTableRow) {
 
 function HeaderCell({
   children,
-  flex,
-  width,
+  flex = 1,
 }: {
   children: ReactNode;
   flex?: number;
-  width?: number;
 }) {
   return (
     <View
       style={{
         backgroundColor: theme.tableHeaderBackground,
         borderBottom: `1px solid ${theme.tableBorder}`,
-        flex: flex ?? 0,
+        flex,
         flexShrink: 0,
         justifyContent: 'center',
         padding: '8px 10px',
-        width,
       }}
     >
       <Text
@@ -104,14 +101,12 @@ function GridCell({
   align = 'left',
   children,
   changed = false,
-  flex,
-  width,
+  flex = 1,
 }: {
   align?: 'left' | 'right';
   children: ReactNode;
   changed?: boolean;
   flex?: number;
-  width?: number;
 }) {
   return (
     <View
@@ -120,12 +115,11 @@ function GridCell({
           ? theme.tableRowBackgroundHighlight
           : 'transparent',
         borderBottom: `1px solid ${theme.tableBorder}`,
-        flex: flex ?? 0,
+        flex,
         flexShrink: 0,
         justifyContent: 'center',
         minHeight: 44,
         padding: '8px 10px',
-        width,
       }}
     >
       <Text
@@ -172,15 +166,15 @@ function PreviewTable({
             zIndex: 1,
           }}
         >
-          <HeaderCell width={110}>{t('Date')}</HeaderCell>
-          <HeaderCell width={180}>{t('Account')}</HeaderCell>
-          <HeaderCell width={150}>{t('Change')}</HeaderCell>
-          <HeaderCell width={180}>{t('Payee')}</HeaderCell>
-          <HeaderCell width={150}>{t('Category')}</HeaderCell>
-          <HeaderCell flex={2} width={undefined}>{t('Notes')}</HeaderCell>
-          <HeaderCell width={120}>{t('Payment')}</HeaderCell>
-          <HeaderCell width={120}>{t('Deposit')}</HeaderCell>
-          <HeaderCell width={240}>{t('Reason')}</HeaderCell>
+          <HeaderCell>{t('Date')}</HeaderCell>
+          <HeaderCell>{t('Account')}</HeaderCell>
+          <HeaderCell>{t('Change')}</HeaderCell>
+          <HeaderCell>{t('Payee')}</HeaderCell>
+          <HeaderCell>{t('Category')}</HeaderCell>
+          <HeaderCell flex={2}>{t('Notes')}</HeaderCell>
+          <HeaderCell>{t('Payment')}</HeaderCell>
+          <HeaderCell>{t('Deposit')}</HeaderCell>
+          <HeaderCell flex={2}>{t('Reason')}</HeaderCell>
         </View>
 
         {rows.map(row => {
@@ -196,29 +190,17 @@ function PreviewTable({
                 flexShrink: 0,
               }}
             >
-              <GridCell
-                changed={row.changedFields.includes('date')}
-                width={110}
-              >
+              <GridCell changed={row.changedFields.includes('date')}>
                 {formatPreviewDate(row.date, dateFormat)}
               </GridCell>
-              <GridCell
-                changed={row.changedFields.includes('accountName')}
-                width={180}
-              >
+              <GridCell changed={row.changedFields.includes('accountName')}>
                 {row.accountName || '-'}
               </GridCell>
-              <GridCell width={150}>{changeLabel}</GridCell>
-              <GridCell
-                changed={row.changedFields.includes('payeeName')}
-                width={180}
-              >
+              <GridCell>{changeLabel}</GridCell>
+              <GridCell changed={row.changedFields.includes('payeeName')}>
                 {row.payeeName || '-'}
               </GridCell>
-              <GridCell
-                changed={row.changedFields.includes('categoryName')}
-                width={150}
-              >
+              <GridCell changed={row.changedFields.includes('categoryName')}>
                 {row.categoryName || '-'}
               </GridCell>
               <GridCell
@@ -230,7 +212,6 @@ function PreviewTable({
               <GridCell
                 align="right"
                 changed={row.changedFields.includes('paymentAmount')}
-                width={120}
               >
                 {row.paymentAmount == null
                   ? '-'
@@ -239,13 +220,12 @@ function PreviewTable({
               <GridCell
                 align="right"
                 changed={row.changedFields.includes('depositAmount')}
-                width={120}
               >
                 {row.depositAmount == null
                   ? '-'
                   : format(row.depositAmount, 'financial')}
               </GridCell>
-              <GridCell width={240}>{row.error ?? row.reason}</GridCell>
+              <GridCell flex={2}>{row.error ?? row.reason}</GridCell>
             </View>
           );
         })}
