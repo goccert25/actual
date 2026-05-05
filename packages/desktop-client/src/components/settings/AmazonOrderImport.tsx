@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { TextArea } from 'react-aria-components';
 import { Trans, useTranslation } from 'react-i18next';
@@ -209,13 +209,7 @@ function AmazonOrderPreviewTable({
             : '-';
 
           return (
-            <View
-              key={`${order.orderId}-${order.reason}`}
-              style={{
-                backgroundColor: rowBackground,
-                display: 'contents',
-              }}
-            >
+            <React.Fragment key={`${order.orderId}-${order.reason}`}>
               <View style={{ backgroundColor: rowBackground }}>
                 <GridCell>
                   {formatPreviewDate(order.orderDate, dateFormat)}
@@ -243,7 +237,7 @@ function AmazonOrderPreviewTable({
               <View style={{ backgroundColor: rowBackground }}>
                 <GridCell>{order.reason}</GridCell>
               </View>
-            </View>
+            </React.Fragment>
           );
         })}
       </View>
