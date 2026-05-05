@@ -42,6 +42,7 @@ class RuleMatchStrategy implements ProcessingStrategyI {
       transaction.id,
       updatedNotes,
       response.categoryId,
+      transaction.amount,
     );
   }
 }

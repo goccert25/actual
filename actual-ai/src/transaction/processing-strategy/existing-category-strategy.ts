@@ -48,6 +48,7 @@ class ExistingCategoryStrategy implements ProcessingStrategyI {
       transaction.id,
       this.tagService.addGuessedTag(transaction.notes ?? ''),
       response.categoryId,
+      transaction.amount,
     );
   }
 }

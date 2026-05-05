@@ -214,12 +214,13 @@ class ActualApiService implements ActualApiServiceI {
     id: string,
     notes: string,
     categoryId: string,
+    amount: number,
   ): Promise<void> {
     if (this.isDryRun) {
       console.log(`DRY RUN: Would update transaction notes ${id} to: ${notes} and category to ${categoryId}`);
       return;
     }
-    await this.actualApiClient.updateTransaction(id, { notes, category: categoryId });
+    await this.actualApiClient.updateTransaction(id, { notes, category: categoryId, amount: amount });
   }
 
   public async runBankSync(): Promise<void> {

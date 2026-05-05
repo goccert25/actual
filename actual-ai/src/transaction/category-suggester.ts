@@ -77,6 +77,7 @@ class CategorySuggester {
                 transaction.id,
                 this.tagService.addGuessedTag(transaction.notes ?? ''),
                 newCategoryId,
+                transaction.amount,
               );
               console.log(`Assigned transaction ${transaction.id} to new category ${suggestion.name}`);
             }),

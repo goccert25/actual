@@ -48,6 +48,7 @@ export interface ActualApiServiceI {
     id: string,
     notes: string,
     categoryId: string,
+    amount: number,
   ): Promise<void>
 
   runBankSync(): Promise<void>
