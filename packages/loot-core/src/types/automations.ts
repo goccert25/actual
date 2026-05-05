@@ -1,4 +1,5 @@
-import type { Query } from '../shared/query';
+import type { Query } from '#shared/query';
+
 import type {
   AccountEntity,
   CategoryEntity,
@@ -207,6 +208,58 @@ export type AutomationsListResult = {
 export type AutomationsRunRequest = {
   name: string;
   dryRun?: boolean;
+};
+
+export type AmazonOrderImportRequest = {
+  csvText: string;
+};
+
+export type AmazonOrderImportStatus =
+  | 'matched'
+  | 'already-split'
+  | 'ambiguous'
+  | 'unmatched'
+  | 'invalid';
+
+export type AmazonOrderImportPreviewItem = {
+  productName: string;
+  quantity: number;
+  totalAmount: number;
+};
+
+export type AmazonOrderImportPreviewMatch = {
+  transactionId: string;
+  accountName: string | null;
+  date: string;
+  payeeName: string | null;
+  totalAmount: number;
+  isParent: boolean;
+  isChild: boolean;
+  reconciled: boolean;
+};
+
+export type AmazonOrderImportPreviewOrder = {
+  orderId: string;
+  orderDate: string | null;
+  totalAmount: number | null;
+  status: AmazonOrderImportStatus;
+  reason: string;
+  items: AmazonOrderImportPreviewItem[];
+  match: AmazonOrderImportPreviewMatch | null;
+};
+
+export type AmazonOrderImportResult = {
+  applied: boolean;
+  orders: AmazonOrderImportPreviewOrder[];
+  summary: {
+    totalOrders: number;
+    matchedOrders: number;
+    appliedOrders: number;
+    alreadySplitOrders: number;
+    ambiguousOrders: number;
+    unmatchedOrders: number;
+    invalidOrders: number;
+  };
 };
 
 export class AutomationPlanBuilder {

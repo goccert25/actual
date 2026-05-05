@@ -1,21 +1,26 @@
 import { q } from '#shared/query';
 import type { Query } from '#shared/query';
-import type { TransactionEntity } from '#types/models';
-import type { AutomationsRunRequest } from '#types/automations';
-import {
-  AutomationPlanBuilder,
-  type Automation,
-  type AutomationContext,
-  type AutomationOperation,
-  type AutomationOperationPreview,
-  type AutomationPreviewField,
-  type AutomationPreviewTableRow,
-  type AutomationRunOptions,
-  type AutomationRunResult,
-  type AutomationTransactionFilter,
-  type AutomationTransactionPreview,
+import { AutomationPlanBuilder } from '#types/automations';
+import type {
+  AmazonOrderImportRequest,
+  Automation,
+  AutomationContext,
+  AutomationOperation,
+  AutomationOperationPreview,
+  AutomationPreviewField,
+  AutomationPreviewTableRow,
+  AutomationRunOptions,
+  AutomationRunResult,
+  AutomationsRunRequest,
+  AutomationTransactionFilter,
+  AutomationTransactionPreview,
 } from '#types/automations';
+import type { TransactionEntity } from '#types/models';
 
+import {
+  applyAmazonOrderImport,
+  previewAmazonOrderImport,
+} from './amazon-order-import';
 import { createApp } from './app';
 import { aqlQuery } from './aql';
 import * as db from './db';
@@ -26,12 +31,21 @@ import { withUndo } from './undo';
 
 export type AutomationsHandlers = {
   'automations-get': typeof getAutomations;
+  'automations-amazon-apply': typeof applyAmazonOrderImportHandler;
+  'automations-amazon-preview': typeof previewAmazonOrderImportHandler;
   'automations-run': typeof runNamedAutomationHandler;
 };
 
 type TableTransaction = Pick<
   AutomationTransactionPreview,
-  'id' | 'account' | 'amount' | 'category' | 'date' | 'notes' | 'payee' | 'transfer_id'
+  | 'id'
+  | 'account'
+  | 'amount'
+  | 'category'
+  | 'date'
+  | 'notes'
+  | 'payee'
+  | 'transfer_id'
 >;
 const PEOPLE = ['George', 'Helen'] as const;
 const MATCH_WINDOW_DAYS = 10;
@@ -142,9 +156,7 @@ export const wealthfrontVenmoCleanupAutomation = defineAutomation({
 
         const replacementNotes = normalizeNotes(venmoTransaction.notes);
 
-        if (
-          replacementNotes !== normalizeNotes(wealthfrontTransaction.notes)
-        ) {
+        if (replacementNotes !== normalizeNotes(wealthfrontTransaction.notes)) {
           plan.updateTransaction(
             wealthfrontTransaction.id,
             { notes: replacementNotes },
@@ -178,6 +190,8 @@ export const availableAutomations = [
 export const app = createApp<AutomationsHandlers>();
 
 app.method('automations-get', getAutomations);
+app.method('automations-amazon-preview', previewAmazonOrderImportHandler);
+app.method('automations-amazon-apply', mutator(applyAmazonOrderImportHandler));
 app.method('automations-run', mutator(runNamedAutomationHandler));
 
 export function defineAutomation(automation: Automation): Automation {
@@ -208,10 +222,22 @@ export async function runNamedAutomationHandler({
     return runAutomation(automation, { dryRun: true });
   }
 
-  return withUndo(
-    () => runAutomation(automation, { dryRun: false }),
-    { type: 'automation', name: automation.name },
-  );
+  return withUndo(() => runAutomation(automation, { dryRun: false }), {
+    type: 'automation',
+    name: automation.name,
+  });
+}
+
+export async function previewAmazonOrderImportHandler({
+  csvText,
+}: AmazonOrderImportRequest) {
+  return previewAmazonOrderImport({ csvText });
+}
+
+export async function applyAmazonOrderImportHandler({
+  csvText,
+}: AmazonOrderImportRequest) {
+  return applyAmazonOrderImport({ csvText });
 }
 
 export async function createAutomationContext(): Promise<AutomationContext> {
@@ -395,8 +421,7 @@ export async function runAutomation(
     name: plan.name ?? automation.name,
   };
   const previews = await previewOperations(normalizedPlan.operations, context, {
-    allowDeletingLinkedTransfers:
-      options.allowDeletingLinkedTransfers ?? false,
+    allowDeletingLinkedTransfers: options.allowDeletingLinkedTransfers ?? false,
     allowReconciledTransactions: options.allowReconciledTransactions ?? false,
   });
   const hasErrors = previews.some(preview => preview.status === 'error');
@@ -977,8 +1002,8 @@ function toDisplayTransaction(
   context: AutomationContext,
 ) {
   const accountName =
-    context.accounts.find(account => account.id === transaction.account)?.name ??
-    null;
+    context.accounts.find(account => account.id === transaction.account)
+      ?.name ?? null;
   const categoryName =
     context.categories.find(category => category.id === transaction.category)
       ?.name ?? null;
