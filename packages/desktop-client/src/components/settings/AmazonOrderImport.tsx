@@ -61,25 +61,6 @@ function formatPreviewDate(value: string | null, dateFormat: string) {
   return formatDate(parseISO(value), dateFormat);
 }
 
-function formatStatus(
-  status: AmazonOrderImportResult['orders'][number]['status'],
-  t: ReturnType<typeof useTranslation>['t'],
-) {
-  switch (status) {
-    case 'matched':
-      return t('Matched');
-    case 'already-split':
-      return t('Already split');
-    case 'ambiguous':
-      return t('Ambiguous');
-    case 'unmatched':
-      return t('Unmatched');
-    case 'invalid':
-      return t('Invalid');
-    default:
-      return status;
-  }
-}
 
 function getRowBackground(
   status: AmazonOrderImportResult['orders'][number]['status'],
@@ -194,34 +175,24 @@ function AmazonOrderPreviewTable({
         width: '100%',
       }}
     >
-      <View style={{ flexShrink: 0, minWidth: 1330 }}>
+      <View style={{ flexShrink: 0 }}>
         <View style={{ flexDirection: 'row', flexShrink: 0 }}>
-          {/* <HeaderCell width={120}>{t('Order date')}</HeaderCell>
-          <HeaderCell width={180}>{t('Order ID')}</HeaderCell>
-          <HeaderCell width={130}>{t('Status')}</HeaderCell>
-          <HeaderCell width={240}>{t('Matched transaction')}</HeaderCell>
-          <HeaderCell align="right" width={120}>
-            {t('Order total')}
-          </HeaderCell>
-          <HeaderCell flex={1} minWidth={300}>
-            {t('Items')}
-          </HeaderCell>
-          <HeaderCell width={240}>{t('Reason')}</HeaderCell> */}
-
           <HeaderCell flex={1}>{t('Order date')}</HeaderCell>
           <HeaderCell flex={1}>{t('Order ID')}</HeaderCell>
-          <HeaderCell flex={1}>{t('Status')}</HeaderCell>
           <HeaderCell flex={1}>{t('Matched transaction')}</HeaderCell>
-          <HeaderCell align="right" width={120}>
-            {t('Order total')}
-          </HeaderCell>
-          <HeaderCell flex={1} minWidth={300}>
+          <HeaderCell flex={1}>{t('Order total')}</HeaderCell>
+          <HeaderCell flex={3}>
             {t('Items')}
           </HeaderCell>
-          <HeaderCell flex={1}>{t('Reason')}</HeaderCell>
         </View>
 
-        {result.orders.map(order => {
+        {[...result.orders]
+          .sort((a, b) => {
+            if (!a.orderDate) return 1;
+            if (!b.orderDate) return -1;
+            return b.orderDate.localeCompare(a.orderDate);
+          })
+          .map(order => {
           const rowBackground = getRowBackground(order.status);
           const itemsLabel =
             order.items.length === 0
@@ -256,37 +227,19 @@ function AmazonOrderPreviewTable({
                 flexShrink: 0,
               }}
             >
-              {/* <GridCell width={120}>
-                {formatPreviewDate(order.orderDate, dateFormat)}
-              </GridCell>
-              <GridCell width={180}>{order.orderId}</GridCell>
-              <GridCell width={130}>{formatStatus(order.status, t)}</GridCell>
-              <GridCell width={240}>{transactionLabel}</GridCell>
-              <GridCell align="right" width={120}>
-                {order.totalAmount == null
-                  ? '-'
-                  : format(order.totalAmount, 'financial')}
-              </GridCell>
-              <GridCell flex={1} minWidth={300}>
-                {itemsLabel}
-              </GridCell>
-              <GridCell width={240}>{order.reason}</GridCell> */}
-
               <GridCell flex={1}>
                 {formatPreviewDate(order.orderDate, dateFormat)}
               </GridCell>
               <GridCell flex={1}>{order.orderId}</GridCell>
-              <GridCell flex={1}>{formatStatus(order.status, t)}</GridCell>
               <GridCell flex={1}>{transactionLabel}</GridCell>
-              <GridCell align="right" flex={1}>
+              <GridCell flex={1}>
                 {order.totalAmount == null
                   ? '-'
                   : format(order.totalAmount, 'financial')}
               </GridCell>
-              <GridCell flex={1} minWidth={300}>
+              <GridCell flex={3}>
                 {itemsLabel}
               </GridCell>
-              <GridCell flex={1}>{order.reason}</GridCell>
             </View>
           );
         })}
