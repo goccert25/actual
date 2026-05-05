@@ -183,8 +183,111 @@ export const wealthfrontVenmoCleanupAutomation = defineAutomation({
   },
 });
 
+const CHASE_NOTE_KEYWORD = 'Chase Credit Crd';
+const CHASE_ACCOUNT_KEYWORD = 'Chase';
+
+export const wealthfrontChaseTransferAutomation = defineAutomation({
+  name: 'Wealthfront Chase credit card transfer link',
+  description:
+    'Links Wealthfront transactions that paid Chase credit cards to the corresponding Chase deposit as transfers.',
+  version: '1',
+  async plan(ctx) {
+    const plan = ctx.createPlan('Wealthfront Chase credit card transfer link');
+
+    const wealthfrontAccounts = findAccountsContaining(ctx.accounts, [
+      WEALTHFRONT_ACCOUNT_KEYWORD,
+    ]);
+    const chaseAccounts = findAccountsContaining(ctx.accounts, [
+      CHASE_ACCOUNT_KEYWORD,
+    ]);
+
+    if (wealthfrontAccounts.length === 0) {
+      plan.skip('Could not find any Wealthfront accounts');
+      return plan;
+    }
+
+    if (chaseAccounts.length === 0) {
+      plan.skip('Could not find any Chase accounts');
+      return plan;
+    }
+
+    const [wealthfrontTransactions, chaseTransactions] = await Promise.all([
+      ctx.queryTransactions({
+        accountIds: wealthfrontAccounts.map(account => account.id),
+        notesContains: CHASE_NOTE_KEYWORD,
+        splits: 'none',
+      }),
+      ctx.queryTransactions({
+        accountIds: chaseAccounts.map(account => account.id),
+        splits: 'none',
+      }),
+    ]);
+
+    const candidateWealthfrontTransactions = wealthfrontTransactions.filter(
+      tx => !tx.transfer_id,
+    );
+    const availableChaseTransactions = chaseTransactions.filter(
+      tx => !tx.transfer_id,
+    );
+    const matchedChaseIds = new Set<string>();
+
+    for (const wealthfrontTx of candidateWealthfrontTransactions) {
+      if (wealthfrontTx.reconciled) {
+        plan.skip(
+          'Wealthfront transaction is reconciled',
+          wealthfrontTx.id,
+        );
+        continue;
+      }
+
+      const expectedChaseAmount = -wealthfrontTx.amount;
+
+      if (expectedChaseAmount <= 0) {
+        plan.skip(
+          'Wealthfront transaction is not a payment (amount is not negative)',
+          wealthfrontTx.id,
+          { amount: wealthfrontTx.amount },
+        );
+        continue;
+      }
+
+      const matches = availableChaseTransactions.filter(
+        chaseTx =>
+          !matchedChaseIds.has(chaseTx.id) &&
+          chaseTx.amount === expectedChaseAmount &&
+          ctx.isWithinDays(chaseTx.date, wealthfrontTx.date, MATCH_WINDOW_DAYS),
+      );
+
+      if (matches.length === 0) {
+        continue;
+      }
+
+      if (matches.length !== 1) {
+        plan.skip(
+          `Expected exactly one matching Chase transaction, found ${matches.length}`,
+          wealthfrontTx.id,
+          { amount: wealthfrontTx.amount, matchWindowDays: MATCH_WINDOW_DAYS },
+        );
+        continue;
+      }
+
+      const [chaseTx] = matches;
+      matchedChaseIds.add(chaseTx.id);
+
+      plan.linkTransfer(
+        wealthfrontTx.id,
+        chaseTx.id,
+        'Link Wealthfront Chase credit card payment to matching Chase deposit',
+      );
+    }
+
+    return plan;
+  },
+});
+
 export const availableAutomations = [
   wealthfrontVenmoCleanupAutomation,
+  wealthfrontChaseTransferAutomation,
 ] satisfies Automation[];
 
 export const app = createApp<AutomationsHandlers>();
