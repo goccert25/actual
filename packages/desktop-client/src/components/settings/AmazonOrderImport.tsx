@@ -171,12 +171,21 @@ function AmazonOrderPreviewTable({
         backgroundColor: theme.tableBackground,
         border: `1px solid ${theme.tableBorder}`,
         borderRadius: 4,
-        overflowX: 'auto',
+        maxHeight: 600,
+        overflow: 'auto',
         width: '100%',
       }}
     >
       <View style={{ flexShrink: 0 }}>
-        <View style={{ flexDirection: 'row', flexShrink: 0 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+          }}
+        >
           <HeaderCell flex={1}>{t('Order date')}</HeaderCell>
           <HeaderCell flex={1}>{t('Order ID')}</HeaderCell>
           <HeaderCell flex={1}>{t('Matched transaction')}</HeaderCell>
