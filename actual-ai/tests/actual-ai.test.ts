@@ -197,6 +197,7 @@ describe('ActualAiService', () => {
     // Assert
     const updatedTransactions = await inMemoryApiService.getTransactions();
     expect(updatedTransactions[0].notes).toBe('Carrefour XXXX1234567 822-307-2000 #actual-ai');
+    expect(updatedTransactions[0].amount).toBe(-123);
   });
 
   it('It should assign a notes to guessed transaction when LLM returned category name instead of ID', async () => {
@@ -244,6 +245,7 @@ describe('ActualAiService', () => {
     // Assert
     const updatedTransactions = await inMemoryApiService.getTransactions();
     expect(updatedTransactions[0].notes).toBe('Carrefour XXXX1234567 822-307-2000 #actual-ai-miss');
+    expect(updatedTransactions[0].amount).toBe(-123);
   });
 
   it('It should skip transaction not guessed before', async () => {

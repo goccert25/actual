@@ -73,7 +73,7 @@ class CategorySuggester {
           // Use Promise.all with map for nested async operations
           await Promise.all(
             suggestion.transactions.map(async (transaction) => {
-              await this.actualApiService.updateTransactionNotesAndCategory(
+              await this.actualApiService.updateTransactionCategoryAndNotes(
                 transaction.id,
                 this.tagService.addGuessedTag(transaction.notes ?? ''),
                 newCategoryId,

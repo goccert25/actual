@@ -44,7 +44,7 @@ class ExistingCategoryStrategy implements ProcessingStrategyI {
     }
 
     console.log(`Using existing category: ${category.name}`);
-    await this.actualApiService.updateTransactionNotesAndCategory(
+    await this.actualApiService.updateTransactionCategoryAndNotes(
       transaction.id,
       this.tagService.addGuessedTag(transaction.notes ?? ''),
       response.categoryId,

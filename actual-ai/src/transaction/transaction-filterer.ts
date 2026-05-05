@@ -26,9 +26,9 @@ class TransactionFilterer {
 
   private flattenTransactions(transactions: TransactionEntity[]): TransactionEntity[] {
     const parentTransactions = transactions.filter((transaction) => transaction.is_parent);
-    const nonParentTransactios = transactions.filter((transaction) => !transaction.is_parent);
+    const nonParentTransactions = transactions.filter((transaction) => !transaction.is_parent);
     const childrenTransactions = parentTransactions.flatMap((parent) => parent.subtransactions);
-    return [...nonParentTransactios, ...childrenTransactions].filter((transaction) => transaction !== undefined);
+    return [...nonParentTransactions, ...childrenTransactions].filter((transaction) => transaction !== undefined);
   }
 
   public filterUncategorized(

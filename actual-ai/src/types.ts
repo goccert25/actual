@@ -42,9 +42,9 @@ export interface ActualApiServiceI {
 
   getPayeeRules(payeeId: string): Promise<RuleEntity[]>
 
-  updateTransactionNotes(id: string, notes: string): Promise<void>
+  updateTransactionNotes(id: string, notes: string, amount: number): Promise<void>
 
-  updateTransactionNotesAndCategory(
+  updateTransactionCategoryAndNotes(
     id: string,
     notes: string,
     categoryId: string,

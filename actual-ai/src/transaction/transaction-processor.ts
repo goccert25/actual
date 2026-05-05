@@ -69,12 +69,14 @@ class TransactionProcessor {
       await this.actualApiService.updateTransactionNotes(
         transaction.id,
         this.tagService.addNotGuessedTag(transaction.notes ?? ''),
+        transaction.amount,
       );
     } catch (error) {
       console.error(`Error processing transaction ${transaction.id}:`, error);
       await this.actualApiService.updateTransactionNotes(
         transaction.id,
         this.tagService.addNotGuessedTag(transaction.notes ?? ''),
+        transaction.amount,
       );
     }
   }

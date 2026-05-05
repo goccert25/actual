@@ -202,15 +202,15 @@ class ActualApiService implements ActualApiServiceI {
     return this.actualApiClient.getPayeeRules(payeeId);
   }
 
-  public async updateTransactionNotes(id: string, notes: string): Promise<void> {
+  public async updateTransactionNotes(id: string, notes: string, amount: number): Promise<void> {
     if (this.isDryRun) {
       console.log(`DRY RUN: Would update transaction notes of ${id} to: ${notes}`);
       return;
     }
-    await this.actualApiClient.updateTransaction(id, { notes });
+    await this.actualApiClient.updateTransaction(id, { notes, amount });
   }
 
-  public async updateTransactionNotesAndCategory(
+  public async updateTransactionCategoryAndNotes(
     id: string,
     notes: string,
     categoryId: string,
@@ -220,7 +220,7 @@ class ActualApiService implements ActualApiServiceI {
       console.log(`DRY RUN: Would update transaction notes ${id} to: ${notes} and category to ${categoryId}`);
       return;
     }
-    await this.actualApiClient.updateTransaction(id, { notes, category: categoryId, amount: amount });
+    await this.actualApiClient.updateTransaction(id, { notes, category: categoryId, amount });
   }
 
   public async runBankSync(): Promise<void> {

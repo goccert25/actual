@@ -38,7 +38,7 @@ class RuleMatchStrategy implements ProcessingStrategyI {
     let updatedNotes = this.tagService.addGuessedTag(transaction.notes ?? '');
     updatedNotes = `${updatedNotes} (rule: ${response.ruleName})`;
 
-    await this.actualApiService.updateTransactionNotesAndCategory(
+    await this.actualApiService.updateTransactionCategoryAndNotes(
       transaction.id,
       updatedNotes,
       response.categoryId,

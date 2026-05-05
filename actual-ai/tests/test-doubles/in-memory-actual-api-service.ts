@@ -76,7 +76,7 @@ export default class InMemoryActualApiService implements ActualApiServiceI {
     this.transactions = transactions;
   }
 
-  async updateTransactionNotes(id: string, notes: string): Promise<void> {
+  async updateTransactionNotes(id: string, notes: string, amount: number): Promise<void> {
     if (this.isDryRun) {
       return Promise.resolve();
     }
@@ -87,14 +87,16 @@ export default class InMemoryActualApiService implements ActualApiServiceI {
         throw new Error(`Transaction with id ${id} not found`);
       }
       transaction.notes = notes;
+      transaction.amount = amount;
       resolve();
     });
   }
 
-  async updateTransactionNotesAndCategory(
+  async updateTransactionCategoryAndNotes(
     id: string,
     notes: string,
     categoryId: string,
+    amount: number,
   ): Promise<void> {
     if (this.isDryRun) {
       return Promise.resolve();
@@ -106,6 +108,7 @@ export default class InMemoryActualApiService implements ActualApiServiceI {
       }
       transaction.notes = notes;
       transaction.category = categoryId;
+      transaction.amount = amount;
       resolve();
     });
   }
