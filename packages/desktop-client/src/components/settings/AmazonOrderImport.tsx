@@ -22,6 +22,7 @@ import { useDateFormat } from '#hooks/useDateFormat';
 import { useFormat } from '#hooks/useFormat';
 
 import { Setting } from './UI';
+import { color } from '@uiw/react-codemirror';
 
 type AmazonOrderImportResult = {
   applied: boolean;
@@ -192,7 +193,7 @@ function AmazonOrderPreviewTable({
           <HeaderCell flex={1}>{t('Order ID')}</HeaderCell>
           <HeaderCell flex={1}>{t('Matched transaction')}</HeaderCell>
           <HeaderCell flex={1}>{t('Order total')}</HeaderCell>
-          <HeaderCell flex={3}>{t('Items')}</HeaderCell>
+          <HeaderCell flex={5}>{t('Items')}</HeaderCell>
         </View>
 
         {[...result.orders]
@@ -207,24 +208,24 @@ function AmazonOrderPreviewTable({
               order.items.length === 0
                 ? '-'
                 : order.items
-                    .map(item => {
-                      const quantityLabel =
-                        item.quantity > 1 ? ` x${item.quantity}` : '';
-                      return `${item.productName}${quantityLabel} - ${format(
-                        item.totalAmount,
-                        'financial',
-                      )}`;
-                    })
-                    .join('\n');
+                  .map(item => {
+                    const quantityLabel =
+                      item.quantity > 1 ? ` x${item.quantity}` : '';
+                    return `${item.productName}${quantityLabel} - ${format(
+                      item.totalAmount,
+                      'financial',
+                    )}`;
+                  })
+                  .join('\n');
             const transactionLabel = order.match
               ? [
-                  order.match.payeeName || t('Unknown payee'),
-                  order.match.accountName || t('Unknown account'),
-                  formatPreviewDate(order.match.date, dateFormat),
-                  order.match.reconciled ? t('Reconciled') : null,
-                ]
-                  .filter(Boolean)
-                  .join('\n')
+                order.match.payeeName || t('Unknown payee'),
+                order.match.accountName || t('Unknown account'),
+                formatPreviewDate(order.match.date, dateFormat),
+                order.match.reconciled ? t('Reconciled') : null,
+              ]
+                .filter(Boolean)
+                .join('\n')
               : '-';
 
             return (
@@ -234,6 +235,7 @@ function AmazonOrderPreviewTable({
                   backgroundColor: rowBackground,
                   flexDirection: 'row',
                   flexShrink: 0,
+                  color: 'white',
                 }}
               >
                 <GridCell flex={1}>
@@ -246,7 +248,7 @@ function AmazonOrderPreviewTable({
                     ? '-'
                     : format(order.totalAmount, 'financial')}
                 </GridCell>
-                <GridCell flex={3}>{itemsLabel}</GridCell>
+                <GridCell flex={5}>{itemsLabel}</GridCell>
               </View>
             );
           })}
@@ -392,8 +394,8 @@ export function AmazonOrderImport() {
           )}
         </View>
         {!canApply &&
-        latestResult?.summary.matchedOrders === 0 &&
-        latestResult ? (
+          latestResult?.summary.matchedOrders === 0 &&
+          latestResult ? (
           <Text style={{ color: theme.pageTextSubdued }}>
             <Trans>No uniquely matched orders are ready to apply.</Trans>
           </Text>
