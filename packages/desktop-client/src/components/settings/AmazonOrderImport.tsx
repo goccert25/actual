@@ -196,7 +196,7 @@ function AmazonOrderPreviewTable({
     >
       <View style={{ flexShrink: 0, minWidth: 1330 }}>
         <View style={{ flexDirection: 'row', flexShrink: 0 }}>
-          <HeaderCell width={120}>{t('Order date')}</HeaderCell>
+          {/* <HeaderCell width={120}>{t('Order date')}</HeaderCell>
           <HeaderCell width={180}>{t('Order ID')}</HeaderCell>
           <HeaderCell width={130}>{t('Status')}</HeaderCell>
           <HeaderCell width={240}>{t('Matched transaction')}</HeaderCell>
@@ -206,7 +206,19 @@ function AmazonOrderPreviewTable({
           <HeaderCell flex={1} minWidth={300}>
             {t('Items')}
           </HeaderCell>
-          <HeaderCell width={240}>{t('Reason')}</HeaderCell>
+          <HeaderCell width={240}>{t('Reason')}</HeaderCell> */}
+
+          <HeaderCell flex={1}>{t('Order date')}</HeaderCell>
+          <HeaderCell flex={1}>{t('Order ID')}</HeaderCell>
+          <HeaderCell flex={1}>{t('Status')}</HeaderCell>
+          <HeaderCell flex={1}>{t('Matched transaction')}</HeaderCell>
+          <HeaderCell align="right" width={120}>
+            {t('Order total')}
+          </HeaderCell>
+          <HeaderCell flex={1} minWidth={300}>
+            {t('Items')}
+          </HeaderCell>
+          <HeaderCell flex={1}>{t('Reason')}</HeaderCell>
         </View>
 
         {result.orders.map(order => {
@@ -215,24 +227,24 @@ function AmazonOrderPreviewTable({
             order.items.length === 0
               ? '-'
               : order.items
-                  .map(item => {
-                    const quantityLabel =
-                      item.quantity > 1 ? ` x${item.quantity}` : '';
-                    return `${item.productName}${quantityLabel} - ${format(
-                      item.totalAmount,
-                      'financial',
-                    )}`;
-                  })
-                  .join('\n');
+                .map(item => {
+                  const quantityLabel =
+                    item.quantity > 1 ? ` x${item.quantity}` : '';
+                  return `${item.productName}${quantityLabel} - ${format(
+                    item.totalAmount,
+                    'financial',
+                  )}`;
+                })
+                .join('\n');
           const transactionLabel = order.match
             ? [
-                order.match.payeeName || t('Unknown payee'),
-                order.match.accountName || t('Unknown account'),
-                formatPreviewDate(order.match.date, dateFormat),
-                order.match.reconciled ? t('Reconciled') : null,
-              ]
-                .filter(Boolean)
-                .join('\n')
+              order.match.payeeName || t('Unknown payee'),
+              order.match.accountName || t('Unknown account'),
+              formatPreviewDate(order.match.date, dateFormat),
+              order.match.reconciled ? t('Reconciled') : null,
+            ]
+              .filter(Boolean)
+              .join('\n')
             : '-';
 
           return (
@@ -244,7 +256,7 @@ function AmazonOrderPreviewTable({
                 flexShrink: 0,
               }}
             >
-              <GridCell width={120}>
+              {/* <GridCell width={120}>
                 {formatPreviewDate(order.orderDate, dateFormat)}
               </GridCell>
               <GridCell width={180}>{order.orderId}</GridCell>
@@ -258,7 +270,23 @@ function AmazonOrderPreviewTable({
               <GridCell flex={1} minWidth={300}>
                 {itemsLabel}
               </GridCell>
-              <GridCell width={240}>{order.reason}</GridCell>
+              <GridCell width={240}>{order.reason}</GridCell> */}
+
+              <GridCell flex={1}>
+                {formatPreviewDate(order.orderDate, dateFormat)}
+              </GridCell>
+              <GridCell flex={1}>{order.orderId}</GridCell>
+              <GridCell flex={1}>{formatStatus(order.status, t)}</GridCell>
+              <GridCell flex={1}>{transactionLabel}</GridCell>
+              <GridCell align="right" flex={1}>
+                {order.totalAmount == null
+                  ? '-'
+                  : format(order.totalAmount, 'financial')}
+              </GridCell>
+              <GridCell flex={1} minWidth={300}>
+                {itemsLabel}
+              </GridCell>
+              <GridCell flex={1}>{order.reason}</GridCell>
             </View>
           );
         })}
@@ -396,8 +424,8 @@ export function AmazonOrderImport() {
           </ButtonWithLoading>
         </View>
         {!canApply &&
-        latestResult?.summary.matchedOrders === 0 &&
-        latestResult ? (
+          latestResult?.summary.matchedOrders === 0 &&
+          latestResult ? (
           <Text style={{ color: theme.pageTextSubdued }}>
             <Trans>No uniquely matched orders are ready to apply.</Trans>
           </Text>
