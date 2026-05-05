@@ -39,6 +39,7 @@ class ExistingCategoryStrategy implements ProcessingStrategyI {
       await this.actualApiService.updateTransactionNotes(
         transaction.id,
         this.tagService.addNotGuessedTag(transaction.notes ?? ''),
+        transaction.amount,
       );
       return;
     }
