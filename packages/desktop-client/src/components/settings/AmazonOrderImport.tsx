@@ -1,6 +1,11 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
-import { TextArea } from 'react-aria-components';
+import {
+  Dialog,
+  Modal as AriaModal,
+  ModalOverlay as AriaModalOverlay,
+  TextArea,
+} from 'react-aria-components';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { Button, ButtonWithLoading } from '@actual-app/components/button';
@@ -60,7 +65,6 @@ function formatPreviewDate(value: string | null, dateFormat: string) {
 
   return formatDate(parseISO(value), dateFormat);
 }
-
 
 function getRowBackground(
   status: AmazonOrderImportResult['orders'][number]['status'],
@@ -171,8 +175,6 @@ function AmazonOrderPreviewTable({
         backgroundColor: theme.tableBackground,
         border: `1px solid ${theme.tableBorder}`,
         borderRadius: 4,
-        maxHeight: 600,
-        overflow: 'auto',
         width: '100%',
       }}
     >
@@ -190,9 +192,7 @@ function AmazonOrderPreviewTable({
           <HeaderCell flex={1}>{t('Order ID')}</HeaderCell>
           <HeaderCell flex={1}>{t('Matched transaction')}</HeaderCell>
           <HeaderCell flex={1}>{t('Order total')}</HeaderCell>
-          <HeaderCell flex={3}>
-            {t('Items')}
-          </HeaderCell>
+          <HeaderCell flex={3}>{t('Items')}</HeaderCell>
         </View>
 
         {[...result.orders]
@@ -202,56 +202,54 @@ function AmazonOrderPreviewTable({
             return b.orderDate.localeCompare(a.orderDate);
           })
           .map(order => {
-          const rowBackground = getRowBackground(order.status);
-          const itemsLabel =
-            order.items.length === 0
-              ? '-'
-              : order.items
-                .map(item => {
-                  const quantityLabel =
-                    item.quantity > 1 ? ` x${item.quantity}` : '';
-                  return `${item.productName}${quantityLabel} - ${format(
-                    item.totalAmount,
-                    'financial',
-                  )}`;
-                })
-                .join('\n');
-          const transactionLabel = order.match
-            ? [
-              order.match.payeeName || t('Unknown payee'),
-              order.match.accountName || t('Unknown account'),
-              formatPreviewDate(order.match.date, dateFormat),
-              order.match.reconciled ? t('Reconciled') : null,
-            ]
-              .filter(Boolean)
-              .join('\n')
-            : '-';
+            const rowBackground = getRowBackground(order.status);
+            const itemsLabel =
+              order.items.length === 0
+                ? '-'
+                : order.items
+                    .map(item => {
+                      const quantityLabel =
+                        item.quantity > 1 ? ` x${item.quantity}` : '';
+                      return `${item.productName}${quantityLabel} - ${format(
+                        item.totalAmount,
+                        'financial',
+                      )}`;
+                    })
+                    .join('\n');
+            const transactionLabel = order.match
+              ? [
+                  order.match.payeeName || t('Unknown payee'),
+                  order.match.accountName || t('Unknown account'),
+                  formatPreviewDate(order.match.date, dateFormat),
+                  order.match.reconciled ? t('Reconciled') : null,
+                ]
+                  .filter(Boolean)
+                  .join('\n')
+              : '-';
 
-          return (
-            <View
-              key={`${order.orderId}-${order.reason}`}
-              style={{
-                backgroundColor: rowBackground,
-                flexDirection: 'row',
-                flexShrink: 0,
-              }}
-            >
-              <GridCell flex={1}>
-                {formatPreviewDate(order.orderDate, dateFormat)}
-              </GridCell>
-              <GridCell flex={1}>{order.orderId}</GridCell>
-              <GridCell flex={1}>{transactionLabel}</GridCell>
-              <GridCell flex={1}>
-                {order.totalAmount == null
-                  ? '-'
-                  : format(order.totalAmount, 'financial')}
-              </GridCell>
-              <GridCell flex={3}>
-                {itemsLabel}
-              </GridCell>
-            </View>
-          );
-        })}
+            return (
+              <View
+                key={`${order.orderId}-${order.reason}`}
+                style={{
+                  backgroundColor: rowBackground,
+                  flexDirection: 'row',
+                  flexShrink: 0,
+                }}
+              >
+                <GridCell flex={1}>
+                  {formatPreviewDate(order.orderDate, dateFormat)}
+                </GridCell>
+                <GridCell flex={1}>{order.orderId}</GridCell>
+                <GridCell flex={1}>{transactionLabel}</GridCell>
+                <GridCell flex={1}>
+                  {order.totalAmount == null
+                    ? '-'
+                    : format(order.totalAmount, 'financial')}
+                </GridCell>
+                <GridCell flex={3}>{itemsLabel}</GridCell>
+              </View>
+            );
+          })}
       </View>
     </View>
   );
@@ -264,6 +262,7 @@ export function AmazonOrderImport() {
   const [error, setError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [latestPreviewText, setLatestPreviewText] = useState<string | null>(
     null,
   );
@@ -289,6 +288,7 @@ export function AmazonOrderImport() {
       const result = await sendAmazonImport('automations-amazon-preview');
       setLatestResult(result);
       setLatestPreviewText(csvText);
+      setIsPreviewOpen(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t('Unable to preview the import.'),
@@ -306,6 +306,7 @@ export function AmazonOrderImport() {
       const result = await sendAmazonImport('automations-amazon-apply');
       setLatestResult(result);
       setLatestPreviewText(csvText);
+      setIsPreviewOpen(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t('Unable to apply the import.'),
@@ -384,10 +385,15 @@ export function AmazonOrderImport() {
           >
             <Trans>Apply matched orders</Trans>
           </ButtonWithLoading>
+          {latestResult && (
+            <Button onPress={() => setIsPreviewOpen(true)}>
+              <Trans>View last results</Trans>
+            </Button>
+          )}
         </View>
         {!canApply &&
-          latestResult?.summary.matchedOrders === 0 &&
-          latestResult ? (
+        latestResult?.summary.matchedOrders === 0 &&
+        latestResult ? (
           <Text style={{ color: theme.pageTextSubdued }}>
             <Trans>No uniquely matched orders are ready to apply.</Trans>
           </Text>
@@ -407,33 +413,94 @@ export function AmazonOrderImport() {
       </Setting>
 
       {latestResult && (
-        <>
-          <Setting>
-            <Text style={{ fontWeight: 600 }}>
-              {latestResult.applied ? (
-                <Trans>Amazon import applied</Trans>
-              ) : (
-                <Trans>Amazon import preview</Trans>
-              )}
-            </Text>
-            <Text style={{ color: theme.pageTextSubdued }}>
-              {t(
-                'Orders: {{total}}, matched: {{matched}}, applied: {{applied}}, already split: {{alreadySplit}}, ambiguous: {{ambiguous}}, unmatched: {{unmatched}}, invalid: {{invalid}}',
-                {
-                  alreadySplit: latestResult.summary.alreadySplitOrders,
-                  ambiguous: latestResult.summary.ambiguousOrders,
-                  applied: latestResult.summary.appliedOrders,
-                  invalid: latestResult.summary.invalidOrders,
-                  matched: latestResult.summary.matchedOrders,
-                  total: latestResult.summary.totalOrders,
-                  unmatched: latestResult.summary.unmatchedOrders,
-                },
-              )}
-            </Text>
-          </Setting>
+        <AriaModalOverlay
+          isDismissable
+          isOpen={isPreviewOpen}
+          onOpenChange={setIsPreviewOpen}
+          style={{
+            alignItems: 'center',
+            backdropFilter: 'blur(1px) brightness(0.9)',
+            display: 'flex',
+            inset: 0,
+            justifyContent: 'center',
+            position: 'fixed',
+            zIndex: 3000,
+          }}
+        >
+          <AriaModal style={{ outline: 'none' }}>
+            <Dialog
+              aria-label={
+                latestResult.applied
+                  ? t('Amazon import applied')
+                  : t('Amazon import preview')
+              }
+              style={{ outline: 'none' }}
+            >
+              <View
+                style={{
+                  backgroundColor: theme.modalBackground,
+                  borderRadius: 6,
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+                  flexDirection: 'column',
+                  height: '85vh',
+                  maxWidth: 1400,
+                  width: '90vw',
+                }}
+              >
+                {/* Header */}
+                <View
+                  style={{
+                    alignItems: 'center',
+                    borderBottom: `1px solid ${theme.tableBorder}`,
+                    flexDirection: 'row',
+                    flexShrink: 0,
+                    justifyContent: 'space-between',
+                    padding: '14px 20px',
+                  }}
+                >
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ fontWeight: 600, fontSize: 16 }}>
+                      {latestResult.applied ? (
+                        <Trans>Amazon import applied</Trans>
+                      ) : (
+                        <Trans>Amazon import preview</Trans>
+                      )}
+                    </Text>
+                    <Text style={{ color: theme.pageTextSubdued }}>
+                      {t(
+                        'Orders: {{total}}, matched: {{matched}}, applied: {{applied}}, already split: {{alreadySplit}}, ambiguous: {{ambiguous}}, unmatched: {{unmatched}}, invalid: {{invalid}}',
+                        {
+                          alreadySplit: latestResult.summary.alreadySplitOrders,
+                          ambiguous: latestResult.summary.ambiguousOrders,
+                          applied: latestResult.summary.appliedOrders,
+                          invalid: latestResult.summary.invalidOrders,
+                          matched: latestResult.summary.matchedOrders,
+                          total: latestResult.summary.totalOrders,
+                          unmatched: latestResult.summary.unmatchedOrders,
+                        },
+                      )}
+                    </Text>
+                  </View>
+                  <Button onPress={() => setIsPreviewOpen(false)}>
+                    <Trans>Close</Trans>
+                  </Button>
+                </View>
 
-          <AmazonOrderPreviewTable result={latestResult} />
-        </>
+                {/* Scrollable table area */}
+                <View
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'auto',
+                    padding: 20,
+                  }}
+                >
+                  <AmazonOrderPreviewTable result={latestResult} />
+                </View>
+              </View>
+            </Dialog>
+          </AriaModal>
+        </AriaModalOverlay>
       )}
     </View>
   );
