@@ -1,8 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+  Dialog,
+  Modal as AriaModal,
+  ModalOverlay as AriaModalOverlay,
+} from 'react-aria-components';
 import { Trans, useTranslation } from 'react-i18next';
 import { format as formatDate, parseISO } from 'date-fns';
 
-import { ButtonWithLoading } from '@actual-app/components/button';
+import { Button, ButtonWithLoading } from '@actual-app/components/button';
 import { styles } from '@actual-app/components/styles';
 import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
@@ -10,7 +16,6 @@ import { View } from '@actual-app/components/view';
 import { send } from '@actual-app/core/platform/client/connection';
 import type { Handlers } from '@actual-app/core/types/handlers';
 import type { AutomationPreviewTableRow } from '@actual-app/core/types/automations';
-import { css } from '@emotion/css';
 
 import { useDateFormat } from '#hooks/useDateFormat';
 import { useFormat } from '#hooks/useFormat';
@@ -26,7 +31,6 @@ function formatPreviewDate(value: string | null | undefined, dateFormat: string)
   if (!value) {
     return '-';
   }
-
   return formatDate(parseISO(value), dateFormat);
 }
 
@@ -34,19 +38,12 @@ function getChangeLabel(
   row: AutomationPreviewTableRow,
   t: ReturnType<typeof useTranslation>['t'],
 ) {
-  if (row.status === 'error') {
-    return t('Error');
-  }
-
-  if (row.status === 'skipped') {
-    return t('Skipped');
-  }
+  if (row.status === 'error') return t('Error');
+  if (row.status === 'skipped') return t('Skipped');
 
   switch (row.operationType) {
     case 'update-transaction':
-      return row.rowRole === 'before'
-        ? t('Update: Before')
-        : t('Update: After');
+      return row.rowRole === 'before' ? t('Update: Before') : t('Update: After');
     case 'delete-transaction':
       return t('Delete');
     case 'link-transfer': {
@@ -62,52 +59,83 @@ function getChangeLabel(
 }
 
 function getRowBackground(row: AutomationPreviewTableRow) {
-  if (row.status === 'error') {
-    return theme.errorBackground;
-  }
-
-  if (row.status === 'skipped') {
-    return theme.warningBackground;
-  }
-
-  if (row.operationType === 'delete-transaction') {
-    return theme.errorBackground;
-  }
-
-  if (row.rowRole === 'after') {
-    return theme.noticeBackgroundLight;
-  }
-
+  if (row.status === 'error') return theme.errorBackground;
+  if (row.status === 'skipped') return theme.warningBackground;
+  if (row.operationType === 'delete-transaction') return theme.errorBackground;
+  if (row.rowRole === 'after') return theme.noticeBackgroundLight;
   return theme.tableBackground;
+}
+
+function HeaderCell({
+  children,
+  flex,
+  width,
+}: {
+  children: ReactNode;
+  flex?: number;
+  width?: number;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: theme.tableHeaderBackground,
+        borderBottom: `1px solid ${theme.tableBorder}`,
+        flex: flex ?? 0,
+        flexShrink: 0,
+        justifyContent: 'center',
+        padding: '8px 10px',
+        width,
+      }}
+    >
+      <Text
+        style={{
+          ...styles.smallText,
+          color: theme.tableHeaderText,
+          fontWeight: 600,
+        }}
+      >
+        {children}
+      </Text>
+    </View>
+  );
 }
 
 function GridCell({
   align = 'left',
   children,
   changed = false,
+  flex,
+  width,
 }: {
   align?: 'left' | 'right';
-  children: React.ReactNode;
+  children: ReactNode;
   changed?: boolean;
+  flex?: number;
+  width?: number;
 }) {
   return (
     <View
       style={{
-        padding: '8px 10px',
-        borderBottom: `1px solid ${theme.tableBorder}`,
-        minHeight: 44,
-        justifyContent: 'center',
         backgroundColor: changed
           ? theme.tableRowBackgroundHighlight
           : 'transparent',
+        borderBottom: `1px solid ${theme.tableBorder}`,
+        flex: flex ?? 0,
+        flexShrink: 0,
+        justifyContent: 'center',
+        minHeight: 44,
+        padding: '8px 10px',
+        width,
       }}
     >
       <Text
         style={{
           ...styles.smallText,
+          color: changed
+            ? theme.tableRowBackgroundHighlightText
+            : theme.tableText,
           textAlign: align,
           whiteSpace: 'pre-wrap',
-          color: changed ? theme.tableRowBackgroundHighlightText : theme.tableText,
         }}
       >
         {children}
@@ -128,146 +156,100 @@ function PreviewTable({
   return (
     <View
       style={{
-        width: '100%',
-        overflowX: 'auto',
+        backgroundColor: theme.tableBackground,
         border: `1px solid ${theme.tableBorder}`,
         borderRadius: 4,
-        backgroundColor: theme.tableBackground,
+        width: '100%',
       }}
     >
-      <View
-        className={css({
-          minWidth: 1250,
-          display: 'grid',
-          gridTemplateColumns:
-            '110px 180px 150px 180px 150px minmax(260px, 2fr) 120px 120px 240px',
-        })}
-      >
-        {[
-          t('Date'),
-          t('Account'),
-          t('Change'),
-          t('Payee'),
-          t('Category'),
-          t('Notes'),
-          t('Payment'),
-          t('Deposit'),
-          t('Reason'),
-        ].map(header => (
-          <View
-            key={header}
-            style={{
-              padding: '8px 10px',
-              borderBottom: `1px solid ${theme.tableBorder}`,
-              backgroundColor: theme.tableHeaderBackground,
-            }}
-          >
-            <Text
-              style={{
-                ...styles.smallText,
-                color: theme.tableHeaderText,
-                fontWeight: 600,
-              }}
-            >
-              {header}
-            </Text>
-          </View>
-        ))}
+      <View style={{ flexShrink: 0 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexShrink: 0,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+          }}
+        >
+          <HeaderCell width={110}>{t('Date')}</HeaderCell>
+          <HeaderCell width={180}>{t('Account')}</HeaderCell>
+          <HeaderCell width={150}>{t('Change')}</HeaderCell>
+          <HeaderCell width={180}>{t('Payee')}</HeaderCell>
+          <HeaderCell width={150}>{t('Category')}</HeaderCell>
+          <HeaderCell flex={2} width={undefined}>{t('Notes')}</HeaderCell>
+          <HeaderCell width={120}>{t('Payment')}</HeaderCell>
+          <HeaderCell width={120}>{t('Deposit')}</HeaderCell>
+          <HeaderCell width={240}>{t('Reason')}</HeaderCell>
+        </View>
 
         {rows.map(row => {
           const changeLabel = getChangeLabel(row, t);
           const rowBackground = getRowBackground(row);
 
           return (
-            <React.Fragment key={row.id}>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell changed={row.changedFields.includes('date')}>
-                  {formatPreviewDate(row.date, dateFormat)}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell changed={row.changedFields.includes('accountName')}>
-                  {row.accountName || '-'}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>{changeLabel}</GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell changed={row.changedFields.includes('payeeName')}>
-                  {row.payeeName || '-'}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell changed={row.changedFields.includes('categoryName')}>
-                  {row.categoryName || '-'}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell changed={row.changedFields.includes('notes')}>
-                  {row.notes || '-'}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell
-                  align="right"
-                  changed={row.changedFields.includes('paymentAmount')}
-                >
-                  {row.paymentAmount == null
-                    ? '-'
-                    : format(row.paymentAmount, 'financial')}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell
-                  align="right"
-                  changed={row.changedFields.includes('depositAmount')}
-                >
-                  {row.depositAmount == null
-                    ? '-'
-                    : format(row.depositAmount, 'financial')}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>{row.error ?? row.reason}</GridCell>
-              </View>
-            </React.Fragment>
+            <View
+              key={row.id}
+              style={{
+                backgroundColor: rowBackground,
+                flexDirection: 'row',
+                flexShrink: 0,
+              }}
+            >
+              <GridCell
+                changed={row.changedFields.includes('date')}
+                width={110}
+              >
+                {formatPreviewDate(row.date, dateFormat)}
+              </GridCell>
+              <GridCell
+                changed={row.changedFields.includes('accountName')}
+                width={180}
+              >
+                {row.accountName || '-'}
+              </GridCell>
+              <GridCell width={150}>{changeLabel}</GridCell>
+              <GridCell
+                changed={row.changedFields.includes('payeeName')}
+                width={180}
+              >
+                {row.payeeName || '-'}
+              </GridCell>
+              <GridCell
+                changed={row.changedFields.includes('categoryName')}
+                width={150}
+              >
+                {row.categoryName || '-'}
+              </GridCell>
+              <GridCell
+                changed={row.changedFields.includes('notes')}
+                flex={2}
+              >
+                {row.notes || '-'}
+              </GridCell>
+              <GridCell
+                align="right"
+                changed={row.changedFields.includes('paymentAmount')}
+                width={120}
+              >
+                {row.paymentAmount == null
+                  ? '-'
+                  : format(row.paymentAmount, 'financial')}
+              </GridCell>
+              <GridCell
+                align="right"
+                changed={row.changedFields.includes('depositAmount')}
+                width={120}
+              >
+                {row.depositAmount == null
+                  ? '-'
+                  : format(row.depositAmount, 'financial')}
+              </GridCell>
+              <GridCell width={240}>{row.error ?? row.reason}</GridCell>
+            </View>
           );
         })}
       </View>
-    </View>
-  );
-}
-
-function PreviewSummary({ result }: { result: AutomationRunResult }) {
-  const { t } = useTranslation();
-
-  return (
-    <View style={{ gap: 6 }}>
-      <Text style={{ fontWeight: 600 }}>
-        {result.applied
-          ? t('Applied "{{name}}"', { name: result.automationName })
-          : t('Dry run preview for "{{name}}"', {
-              name: result.automationName,
-            })}
-      </Text>
-      <Text style={{ color: theme.pageTextSubdued }}>
-        {t(
-          'Updates: {{updates}}, deletes: {{deletes}}, transfers: {{transfers}}, skips: {{skips}}, errors: {{errors}}',
-          {
-            deletes: result.summary.deletes,
-            errors: result.summary.errors,
-            skips: result.summary.skips,
-            transfers: result.summary.transferLinks,
-            updates: result.summary.updates,
-          },
-        )}
-      </Text>
-      {!result.applied && (
-        <Text style={{ color: theme.noticeTextLight }}>
-          <Trans>This preview is read-only.</Trans>
-        </Text>
-      )}
     </View>
   );
 }
@@ -279,6 +261,7 @@ export function CodeAutomations() {
   const [isLoading, setIsLoading] = useState(true);
   const [runningName, setRunningName] = useState<string | null>(null);
   const [applyingName, setApplyingName] = useState<string | null>(null);
+  const [isResultOpen, setIsResultOpen] = useState(false);
   const [latestResult, setLatestResult] = useState<AutomationRunResult | null>(
     null,
   );
@@ -297,7 +280,11 @@ export function CodeAutomations() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t('Unable to load automations.'));
+          setError(
+            err instanceof Error
+              ? err.message
+              : t('Unable to load automations.'),
+          );
         }
       } finally {
         if (!cancelled) {
@@ -325,6 +312,7 @@ export function CodeAutomations() {
     try {
       const result = await send('automations-run', { dryRun, name });
       setLatestResult(result);
+      setIsResultOpen(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : t('Unable to run automation.'),
@@ -360,114 +348,218 @@ export function CodeAutomations() {
   }
 
   return (
-    <Setting>
-      <Text>
-        <Trans>
-          <strong>Code automations</strong> run checked-in transaction cleanup
-          scripts against the currently open budget. The same controls work
-          whether you opened the budget locally or through a Docker-hosted sync
-          server because the automation runs inside the app against the loaded
-          budget.
-        </Trans>
-      </Text>
-      <Text style={{ color: theme.pageTextSubdued }}>
-        <Trans>
-          Dry run is the default. Review the preview first, then apply when it
-          looks correct.
-        </Trans>
-      </Text>
+    <>
+      <Setting>
+        <Text>
+          <Trans>
+            <strong>Code automations</strong> run checked-in transaction cleanup
+            scripts against the currently open budget. The same controls work
+            whether you opened the budget locally or through a Docker-hosted
+            sync server because the automation runs inside the app against the
+            loaded budget.
+          </Trans>
+        </Text>
+        <Text style={{ color: theme.pageTextSubdued }}>
+          <Trans>
+            Dry run is the default. Review the preview first, then apply when
+            it looks correct.
+          </Trans>
+        </Text>
 
-      <View style={{ gap: 12, width: '100%' }}>
-        {isLoading ? (
-          <Text>
-            <Trans>Loading automations...</Trans>
-          </Text>
-        ) : automations.length === 0 ? (
-          <Text>
-            <Trans>No automations are currently registered.</Trans>
-          </Text>
-        ) : (
-          automations.map(automation => {
-            const applyMessage = getApplyMessage(automation.name);
+        <View style={{ gap: 12, width: '100%' }}>
+          {isLoading ? (
+            <Text>
+              <Trans>Loading automations...</Trans>
+            </Text>
+          ) : automations.length === 0 ? (
+            <Text>
+              <Trans>No automations are currently registered.</Trans>
+            </Text>
+          ) : (
+            automations.map(automation => {
+              const applyMessage = getApplyMessage(automation.name);
 
-            return (
+              return (
+                <View
+                  key={automation.name}
+                  style={{
+                    backgroundColor: theme.tableBackground,
+                    border: `1px solid ${theme.tableBorder}`,
+                    borderRadius: 4,
+                    gap: 10,
+                    padding: 12,
+                    width: '100%',
+                  }}
+                >
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ fontWeight: 600 }}>{automation.name}</Text>
+                    {automation.description && (
+                      <Text style={{ color: theme.pageTextSubdued }}>
+                        {automation.description}
+                      </Text>
+                    )}
+                    {automation.version && (
+                      <Text style={{ color: theme.pageTextSubdued }}>
+                        {t('Version: {{version}}', {
+                          version: automation.version,
+                        })}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View
+                    style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}
+                  >
+                    <ButtonWithLoading
+                      isLoading={runningName === automation.name}
+                      onPress={() => {
+                        void runAutomation(automation.name, true);
+                      }}
+                    >
+                      <Trans>Dry run</Trans>
+                    </ButtonWithLoading>
+                    <ButtonWithLoading
+                      isDisabled={!canApply(automation.name)}
+                      isLoading={applyingName === automation.name}
+                      onPress={() => {
+                        void runAutomation(automation.name, false);
+                      }}
+                      variant="primary"
+                    >
+                      <Trans>Apply</Trans>
+                    </ButtonWithLoading>
+                    {latestResult?.automationName === automation.name && (
+                      <Button onPress={() => setIsResultOpen(true)}>
+                        <Trans>View last results</Trans>
+                      </Button>
+                    )}
+                  </View>
+
+                  {applyMessage && (
+                    <Text style={{ color: theme.pageTextSubdued }}>
+                      {applyMessage}
+                    </Text>
+                  )}
+                </View>
+              );
+            })
+          )}
+
+          {error && (
+            <Text style={{ color: theme.errorText, whiteSpace: 'pre-wrap' }}>
+              {error}
+            </Text>
+          )}
+        </View>
+      </Setting>
+
+      {latestResult && (
+        <AriaModalOverlay
+          isDismissable
+          isOpen={isResultOpen}
+          onOpenChange={setIsResultOpen}
+          style={{
+            alignItems: 'center',
+            backdropFilter: 'blur(1px) brightness(0.9)',
+            display: 'flex',
+            inset: 0,
+            justifyContent: 'center',
+            position: 'fixed',
+            zIndex: 3000,
+          }}
+        >
+          <AriaModal style={{ outline: 'none' }}>
+            <Dialog
+              aria-label={
+                latestResult.applied
+                  ? t('Applied "{{name}}"', {
+                      name: latestResult.automationName,
+                    })
+                  : t('Dry run preview for "{{name}}"', {
+                      name: latestResult.automationName,
+                    })
+              }
+              style={{ outline: 'none' }}
+            >
               <View
-                key={automation.name}
                 style={{
-                  width: '100%',
-                  gap: 10,
-                  padding: 12,
-                  border: `1px solid ${theme.tableBorder}`,
-                  borderRadius: 4,
-                  backgroundColor: theme.tableBackground,
+                  backgroundColor: theme.modalBackground,
+                  borderRadius: 6,
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+                  flexDirection: 'column',
+                  height: '85vh',
+                  maxWidth: 1600,
+                  width: '90vw',
                 }}
               >
-                <View style={{ gap: 4 }}>
-                  <Text style={{ fontWeight: 600 }}>{automation.name}</Text>
-                  {automation.description && (
-                    <Text style={{ color: theme.pageTextSubdued }}>
-                      {automation.description}
+                {/* Header */}
+                <View
+                  style={{
+                    alignItems: 'center',
+                    borderBottom: `1px solid ${theme.tableBorder}`,
+                    flexDirection: 'row',
+                    flexShrink: 0,
+                    justifyContent: 'space-between',
+                    padding: '14px 20px',
+                  }}
+                >
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ fontWeight: 600, fontSize: 16 }}>
+                      {latestResult.applied
+                        ? t('Applied "{{name}}"', {
+                            name: latestResult.automationName,
+                          })
+                        : t('Dry run preview for "{{name}}"', {
+                            name: latestResult.automationName,
+                          })}
                     </Text>
-                  )}
-                  {automation.version && (
                     <Text style={{ color: theme.pageTextSubdued }}>
-                      {t('Version: {{version}}', {
-                        version: automation.version,
-                      })}
+                      {t(
+                        'Updates: {{updates}}, deletes: {{deletes}}, transfers: {{transfers}}, skips: {{skips}}, errors: {{errors}}',
+                        {
+                          deletes: latestResult.summary.deletes,
+                          errors: latestResult.summary.errors,
+                          skips: latestResult.summary.skips,
+                          transfers: latestResult.summary.transferLinks,
+                          updates: latestResult.summary.updates,
+                        },
+                      )}
+                    </Text>
+                    {!latestResult.applied && (
+                      <Text style={{ color: theme.noticeTextLight }}>
+                        <Trans>This preview is read-only.</Trans>
+                      </Text>
+                    )}
+                  </View>
+                  <Button onPress={() => setIsResultOpen(false)}>
+                    <Trans>Close</Trans>
+                  </Button>
+                </View>
+
+                {/* Scrollable table area */}
+                <View
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'auto',
+                    padding: 20,
+                  }}
+                >
+                  {latestResult.tableRows.length > 0 ? (
+                    <PreviewTable rows={latestResult.tableRows} />
+                  ) : (
+                    <Text>
+                      <Trans>
+                        No preview rows were generated for this automation.
+                      </Trans>
                     </Text>
                   )}
                 </View>
-
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                  <ButtonWithLoading
-                    isLoading={runningName === automation.name}
-                    onPress={() => {
-                      void runAutomation(automation.name, true);
-                    }}
-                  >
-                    <Trans>Dry run</Trans>
-                  </ButtonWithLoading>
-                  <ButtonWithLoading
-                    variant="primary"
-                    isLoading={applyingName === automation.name}
-                    isDisabled={!canApply(automation.name)}
-                    onPress={() => {
-                      void runAutomation(automation.name, false);
-                    }}
-                  >
-                    <Trans>Apply</Trans>
-                  </ButtonWithLoading>
-                </View>
-
-                {applyMessage && (
-                  <Text style={{ color: theme.pageTextSubdued }}>
-                    {applyMessage}
-                  </Text>
-                )}
               </View>
-            );
-          })
-        )}
-
-        {error && (
-          <Text style={{ color: theme.errorText, whiteSpace: 'pre-wrap' }}>
-            {error}
-          </Text>
-        )}
-
-        {latestResult && (
-          <View style={{ gap: 12, width: '100%' }}>
-            <PreviewSummary result={latestResult} />
-            {latestResult.tableRows.length > 0 ? (
-              <PreviewTable rows={latestResult.tableRows} />
-            ) : (
-              <Text>
-                <Trans>No preview rows were generated for this automation.</Trans>
-              </Text>
-            )}
-          </View>
-        )}
-      </View>
-    </Setting>
+            </Dialog>
+          </AriaModal>
+        </AriaModalOverlay>
+      )}
+    </>
   );
 }
