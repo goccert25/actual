@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { TextArea } from 'react-aria-components';
 import { Trans, useTranslation } from 'react-i18next';
@@ -11,7 +11,6 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import { send } from '@actual-app/core/platform/client/connection';
 import type { Handlers } from '@actual-app/core/types/handlers';
-import { css } from '@emotion/css';
 import { format as formatDate, parseISO } from 'date-fns';
 
 import { useDateFormat } from '#hooks/useDateFormat';
@@ -97,20 +96,70 @@ function getRowBackground(
   }
 }
 
-function GridCell({
+function HeaderCell({
   align = 'left',
   children,
+  flex,
+  minWidth,
+  width,
 }: {
   align?: 'left' | 'right';
   children: ReactNode;
+  flex?: number;
+  minWidth?: number;
+  width?: number;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: theme.tableHeaderBackground,
+        borderBottom: `1px solid ${theme.tableBorder}`,
+        flex: flex ?? 0,
+        flexShrink: 0,
+        justifyContent: 'center',
+        minWidth,
+        padding: '8px 10px',
+        width,
+      }}
+    >
+      <Text
+        style={{
+          ...styles.smallText,
+          color: theme.tableHeaderText,
+          fontWeight: 600,
+          textAlign: align,
+        }}
+      >
+        {children}
+      </Text>
+    </View>
+  );
+}
+
+function GridCell({
+  align = 'left',
+  children,
+  flex,
+  minWidth,
+  width,
+}: {
+  align?: 'left' | 'right';
+  children: ReactNode;
+  flex?: number;
+  minWidth?: number;
+  width?: number;
 }) {
   return (
     <View
       style={{
         borderBottom: `1px solid ${theme.tableBorder}`,
+        flex: flex ?? 0,
+        flexShrink: 0,
         justifyContent: 'center',
         minHeight: 52,
+        minWidth,
         padding: '8px 10px',
+        width,
       }}
     >
       <Text
@@ -145,42 +194,20 @@ function AmazonOrderPreviewTable({
         width: '100%',
       }}
     >
-      <View
-        className={css({
-          display: 'grid',
-          gridTemplateColumns:
-            '120px 180px 130px 240px 120px minmax(300px, 2fr) 240px',
-          minWidth: 1330,
-        })}
-      >
-        {[
-          t('Order date'),
-          t('Order ID'),
-          t('Status'),
-          t('Matched transaction'),
-          t('Order total'),
-          t('Items'),
-          t('Reason'),
-        ].map(header => (
-          <View
-            key={header}
-            style={{
-              backgroundColor: theme.tableHeaderBackground,
-              borderBottom: `1px solid ${theme.tableBorder}`,
-              padding: '8px 10px',
-            }}
-          >
-            <Text
-              style={{
-                ...styles.smallText,
-                color: theme.tableHeaderText,
-                fontWeight: 600,
-              }}
-            >
-              {header}
-            </Text>
-          </View>
-        ))}
+      <View style={{ flexShrink: 0, minWidth: 1330 }}>
+        <View style={{ flexDirection: 'row', flexShrink: 0 }}>
+          <HeaderCell width={120}>{t('Order date')}</HeaderCell>
+          <HeaderCell width={180}>{t('Order ID')}</HeaderCell>
+          <HeaderCell width={130}>{t('Status')}</HeaderCell>
+          <HeaderCell width={240}>{t('Matched transaction')}</HeaderCell>
+          <HeaderCell align="right" width={120}>
+            {t('Order total')}
+          </HeaderCell>
+          <HeaderCell flex={1} minWidth={300}>
+            {t('Items')}
+          </HeaderCell>
+          <HeaderCell width={240}>{t('Reason')}</HeaderCell>
+        </View>
 
         {result.orders.map(order => {
           const rowBackground = getRowBackground(order.status);
@@ -209,35 +236,30 @@ function AmazonOrderPreviewTable({
             : '-';
 
           return (
-            <React.Fragment key={`${order.orderId}-${order.reason}`}>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>
-                  {formatPreviewDate(order.orderDate, dateFormat)}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>{order.orderId}</GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>{formatStatus(order.status, t)}</GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>{transactionLabel}</GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell align="right">
-                  {order.totalAmount == null
-                    ? '-'
-                    : format(order.totalAmount, 'financial')}
-                </GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>{itemsLabel}</GridCell>
-              </View>
-              <View style={{ backgroundColor: rowBackground }}>
-                <GridCell>{order.reason}</GridCell>
-              </View>
-            </React.Fragment>
+            <View
+              key={`${order.orderId}-${order.reason}`}
+              style={{
+                backgroundColor: rowBackground,
+                flexDirection: 'row',
+                flexShrink: 0,
+              }}
+            >
+              <GridCell width={120}>
+                {formatPreviewDate(order.orderDate, dateFormat)}
+              </GridCell>
+              <GridCell width={180}>{order.orderId}</GridCell>
+              <GridCell width={130}>{formatStatus(order.status, t)}</GridCell>
+              <GridCell width={240}>{transactionLabel}</GridCell>
+              <GridCell align="right" width={120}>
+                {order.totalAmount == null
+                  ? '-'
+                  : format(order.totalAmount, 'financial')}
+              </GridCell>
+              <GridCell flex={1} minWidth={300}>
+                {itemsLabel}
+              </GridCell>
+              <GridCell width={240}>{order.reason}</GridCell>
+            </View>
           );
         })}
       </View>
