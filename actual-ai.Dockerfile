@@ -31,6 +31,7 @@ COPY actual-ai/ ./actual-ai/
 ENV NODE_OPTIONS=--max_old_space_size=8192
 
 RUN yarn workspace @actual-app/crdt build
+RUN yarn workspace @actual-app/core build
 RUN yarn workspace @actual-app/api build
 RUN yarn workspace @sakowicz/actual-ai build
 
