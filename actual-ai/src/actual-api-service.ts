@@ -8,10 +8,6 @@ import path from 'path';
 import { TransactionEntity, RuleEntity } from '@actual-app/core/src/types/models';
 import { ActualApiServiceI } from './types';
 
-function isErrnoException(error: unknown): error is Error & { code?: string } {
-  return error instanceof Error;
-}
-
 class ActualApiService implements ActualApiServiceI {
   private actualApiClient: typeof import('@actual-app/api');
 
@@ -32,6 +28,11 @@ class ActualApiService implements ActualApiServiceI {
   private lockFd: number | null = null;
 
   private readonly lockPath: string;
+
+  // Locks older than this are considered stale regardless of PID liveness.
+  // The process runs once daily and completes in minutes, so 12 hours is
+  // far beyond any legitimate hold time.
+  private static readonly STALE_LOCK_THRESHOLD_MS = 12 * 60 * 60 * 1000;
 
   constructor(
     actualApiClient: typeof import('@actual-app/api'),
@@ -66,7 +67,19 @@ class ActualApiService implements ActualApiServiceI {
         const raw = this.fs.readFileSync(this.lockPath, 'utf8');
         const parsed = JSON.parse(raw) as { pid?: number; startedAt?: string };
         const pid = parsed?.pid;
-        if (typeof pid === 'number') {
+        const startedAt = parsed?.startedAt ? new Date(parsed.startedAt) : null;
+
+        // If the PID in the lock is our own, it's a stale lock from a previous
+        // run in the same container (PID reuse). Safe to remove.
+        if (pid === process.pid) {
+          this.fs.unlinkSync(this.lockPath);
+        }
+        // If the lock is older than the staleness threshold, assume the
+        // previous run crashed without cleaning up. Safe to remove.
+        else if (startedAt && (Date.now() - startedAt.getTime() > ActualApiService.STALE_LOCK_THRESHOLD_MS)) {
+          this.fs.unlinkSync(this.lockPath);
+        }
+        else if (typeof pid === 'number') {
           try {
             process.kill(pid, 0);
             throw new Error(
@@ -74,11 +87,20 @@ class ActualApiService implements ActualApiServiceI {
               + `Refusing to use shared dataDir: ${this.dataDir}`,
             );
           } catch (error: unknown) {
-            if (isErrnoException(error) && error.code === 'ESRCH') {
+            // Check for ESRCH directly on the error object rather than relying on
+            // instanceof — Node.js SystemError may not pass instanceof checks in
+            // some environments (e.g. ts-jest).
+            if (
+              typeof error === 'object'
+              && error !== null
+              && 'code' in error
+              && (error as { code: unknown }).code === 'ESRCH'
+            ) {
               // Stale lock from a crashed process; remove it.
               this.fs.unlinkSync(this.lockPath);
-            } else if (error instanceof Error) {
-              // process.kill threw, but it's not ESRCH; rethrow.
+            } else {
+              // process.kill threw with a non-ESRCH error, or we threw our own
+              // "Refusing to use shared dataDir" error — rethrow either way.
               throw error;
             }
           }
@@ -117,11 +139,16 @@ class ActualApiService implements ActualApiServiceI {
   public async initializeApi() {
     this.acquireDataDirLock();
 
-    await this.actualApiClient.init({
-      dataDir: this.dataDir,
-      serverURL: this.serverURL,
-      password: this.password,
-    });
+    try {
+      await this.actualApiClient.init({
+        dataDir: this.dataDir,
+        serverURL: this.serverURL,
+        password: this.password,
+      });
+    } catch (error: unknown) {
+      this.releaseDataDirLock();
+      throw error;
+    }
 
     try {
       if (this.e2ePassword) {
